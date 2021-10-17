@@ -1,12 +1,13 @@
 mod lex;
+mod parse;
 
 use lex::lexer::Lexer;
+
+use crate::parse::parse;
 
 fn main() {
     let source = "1 + 2";
     let lexer = Lexer::new(source);
 
-    for token in lexer {
-        println!("{:?}", token);
-    }
+    println!("{:?}", parse(lexer.peekable()));
 }
