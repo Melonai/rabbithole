@@ -123,7 +123,7 @@ impl Div for WalkValue {
             },
             Self::Int(int) => match rhs {
                 Self::Float(other_float) => Self::Float(int as f64 / other_float),
-                Self::Int(other_int) => Self::Int(int / other_int),
+                Self::Int(other_int) => Self::Float(int as f64 / other_int as f64),
             },
         }
     }
