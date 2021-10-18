@@ -3,11 +3,13 @@ mod parse;
 
 use lex::lexer::Lexer;
 
-use crate::parse::parse;
+use crate::parse::parser::Parser;
 
 fn main() {
-    let source = "1 + 2";
-    let lexer = Lexer::new(source);
+    let source = "1 * 2 + 3 + (-1)";
 
-    println!("{:?}", parse(lexer.peekable()));
+    let lexer = Lexer::new(source);
+    let mut parser = Parser::new(lexer);
+
+    println!("{}", parser.parse().expect("Failed parsing."));
 }
