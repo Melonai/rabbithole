@@ -1,16 +1,52 @@
 (* Grammar definition in EBNF format. *)
 
-Expression = TermExpression;
+Program = {Statement} EOF;
 
+(* Statement *)
+
+Statement = ExpressionStatement | ReturnStatement | PrintStatement;
+
+ExpressionStatement = Expression ";";
+ReturnStatement = "return" Expression ";";
+(* NOTE: Hard-coded PrintStatement until Rabbithole has an standard library *)
+PrintStatement = "print" Expression ";";
+
+(* Expression *)
+
+Expression = AssignmentExpression;
+
+(* Expressions affected by precedence*)
+
+(* NOTE: Only allow IDENTIFIERs and their fields as the LValue for now. *)
+AssignmentExpression = IDENTIFIER {"." IDENTIFIER} ("=" | ":=") AssignmentExpression | TermExpression;
 TermExpression = FactorExpression { ("+" | "-") FactorExpression };
-
 FactorExpression = UnaryExpression { ("*" | "/") UnaryExpression };
-
-UnaryExpression = ( "-" | "!" ) | GroupExpression;
+UnaryExpression = ( "-" | "!" ) UnaryExpression | UnitExpression ;
                 
-UnitExpression = NaturalDigit {Digit} | "(" Expression ")";;
+(* Unaffected Expressions *)
 
-(* Basics *)
+UnitExpression = FLOAT | INT | STR | GroupExpression | BlockExpression | FnExpression | | TypeExpression | FormExpression | IfExpression;
 
-NaturalDigit = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
-Digit = "0" | NaturalDigit ;
+GroupExpression = "(" Expression ")";
+BlockExpression = Block;
+FnExpression = "fn" FnHeader Block;
+TypeExpression = "type" TypeBlock;
+(* NOTE: Will associated functions clash with fields? *)
+FormExpression = "form" TypeBlock;
+IfExpression = "if" Expression Block { "elif" Expression Block } [ "else" Block ];
+
+(* Parts *)
+
+FnHeader = (FnSingleParameter | FnMultipleParameters) ["->" Type];
+FnSingleParameter = "self" | FnParameter;
+FnMultipleParameters = "(" FnSingleParameter { "," FnParameter} ")";
+FnParameter = IdentiferType;
+
+(* Utils *)
+
+Block = "{" { Statement } [Expression] "}";
+TypeBlock = "{" [ IdentiferType ] { "," IdentiferType } "}";
+
+IdentiferType = IDENTIFIER ":" Type;
+(* NOTE: Type doesn't include anything other than simple named types for now. *)
+Type = IDENTIFIER;
