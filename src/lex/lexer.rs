@@ -12,6 +12,8 @@ impl Iterator for Lexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
+        use super::token::TokenVariant::*;
+
         if self.done {
             return None;
         }
@@ -20,7 +22,7 @@ impl Iterator for Lexer<'_> {
             self.done = true;
             return Some(Token {
                 location: self.location,
-                variant: TokenVariant::Eof,
+                variant: Eof,
             });
         }
 
@@ -30,22 +32,71 @@ impl Iterator for Lexer<'_> {
 
         let token = if c.is_numeric() {
             self.number()
-        } else if c == '+' {
-            self.char_token(TokenVariant::OpPlus)
-        } else if c == '-' {
-            self.char_token(TokenVariant::OpMinus)
-        } else if c == '*' {
-            self.char_token(TokenVariant::OpStar)
-        } else if c == '/' {
-            self.char_token(TokenVariant::OpSlash)
-        } else if c == '!' {
-            self.char_token(TokenVariant::OpNot)
-        } else if c == '(' {
-            self.char_token(TokenVariant::GroupOpen)
-        } else if c == ')' {
-            self.char_token(TokenVariant::GroupClose)
+        } else if c.is_alphabetic() {
+            self.identifier()
+        } else if c == '"' {
+            self.str()
         } else {
-            self.char_token(TokenVariant::Unknown(c))
+            let location = self.location;
+
+            // Fixed length tokens
+            let variant = match self.advance().unwrap() {
+                '+' => OpPlus,
+                '-' => {
+                    if self.advance_if('>') {
+                        Arrow
+                    } else {
+                        OpMinus
+                    }
+                }
+                '*' => OpStar,
+                '/' => OpSlash,
+                '=' => {
+                    if self.advance_if('=') {
+                        OpEq
+                    } else {
+                        Assign
+                    }
+                }
+                '!' => {
+                    if self.advance_if('=') {
+                        OpNeq
+                    } else {
+                        OpNot
+                    }
+                }
+                '<' => {
+                    if self.advance_if('=') {
+                        OpLte
+                    } else {
+                        OpLt
+                    }
+                }
+                '>' => {
+                    if self.advance_if('=') {
+                        OpGte
+                    } else {
+                        OpGt
+                    }
+                }
+                '(' => GroupOpen,
+                ')' => GroupClose,
+                '{' => BlockOpen,
+                '}' => BlockClose,
+                '.' => Dot,
+                ',' => Comma,
+                ':' => {
+                    if self.advance_if('=') {
+                        ConstAssign
+                    } else {
+                        Colon
+                    }
+                }
+                ';' => SemiColon,
+                _ => Unknown(c),
+            };
+
+            Token { location, variant }
         };
 
         Some(token)
@@ -75,6 +126,10 @@ impl<'s> Lexer<'s> {
         next
     }
 
+    fn advance_if(&mut self, c: char) -> bool {
+        self.chars.next_if_eq(&c).is_some()
+    }
+
     fn skip_whitespace(&mut self) {
         while self
             .chars
@@ -83,15 +138,6 @@ impl<'s> Lexer<'s> {
         {
             self.advance();
         }
-    }
-
-    fn char_token(&mut self, variant: TokenVariant) -> Token {
-        let token = Token {
-            location: self.location,
-            variant,
-        };
-        self.advance();
-        token
     }
 
     fn number(&mut self) -> Token {
@@ -121,5 +167,47 @@ impl<'s> Lexer<'s> {
         };
 
         Token { location, variant }
+    }
+
+    fn identifier(&mut self) -> Token {
+        let location = self.location;
+
+        let mut buffer = String::new();
+
+        while self.chars.peek().map_or(false, |&c| c.is_alphabetic()) {
+            let c = self.advance().unwrap();
+            buffer.push(c);
+        }
+
+        let variant = match buffer.as_str() {
+            "fn" => TokenVariant::KeywordFn,
+            "type" => TokenVariant::KeywordType,
+            "form" => TokenVariant::KeywordForm,
+            "self" => TokenVariant::KeywordSelf,
+            _ => TokenVariant::Identifer(buffer),
+        };
+
+        Token { location, variant }
+    }
+
+    fn str(&mut self) -> Token {
+        let location = self.location;
+
+        // Remove first "
+        self.advance().unwrap();
+
+        let mut buffer = String::new();
+        loop {
+            let c = self.advance().expect("Expected Str literal to be closed");
+            if c == '"' {
+                break;
+            }
+            buffer.push(c);
+        }
+
+        Token {
+            location,
+            variant: TokenVariant::Str(buffer),
+        }
     }
 }
