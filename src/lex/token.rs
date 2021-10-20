@@ -45,7 +45,7 @@ pub enum TokenVariant {
     Int(u32),
     Float(f32),
     Str(String),
-    Identifer(String),
+    Identifier(String),
 
     // Keywords
     KeywordFn,

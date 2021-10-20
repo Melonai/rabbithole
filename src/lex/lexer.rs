@@ -184,7 +184,7 @@ impl<'s> Lexer<'s> {
             "type" => TokenVariant::KeywordType,
             "form" => TokenVariant::KeywordForm,
             "self" => TokenVariant::KeywordSelf,
-            _ => TokenVariant::Identifer(buffer),
+            _ => TokenVariant::Identifier(buffer),
         };
 
         Token { location, variant }
