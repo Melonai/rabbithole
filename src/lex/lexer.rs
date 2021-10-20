@@ -181,10 +181,15 @@ impl<'s> Lexer<'s> {
 
         let variant = match buffer.as_str() {
             "fn" => TokenVariant::KeywordFn,
+            "if" => TokenVariant::KeywordIf,
+            "elif" => TokenVariant::KeywordElif,
+            "else" => TokenVariant::KeywordElse,
             "type" => TokenVariant::KeywordType,
             "form" => TokenVariant::KeywordForm,
             "self" => TokenVariant::KeywordSelf,
-            _ => TokenVariant::Identifier(buffer),
+            "return" => TokenVariant::KeywordReturn,
+            "print" => TokenVariant::KeywordPrint,
+            _ => TokenVariant::Ident(buffer),
         };
 
         Token { location, variant }

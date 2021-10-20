@@ -25,7 +25,7 @@ UnaryExpression = ( "-" | "!" ) UnaryExpression | UnitExpression ;
                 
 (* Unaffected Expressions *)
 
-UnitExpression = FLOAT | INT | STR | GroupExpression | BlockExpression | FnExpression | | TypeExpression | FormExpression | IfExpression;
+UnitExpression = FLOAT | INT | STR | GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
 
 GroupExpression = "(" Expression ")";
 BlockExpression = Block;
@@ -37,16 +37,14 @@ IfExpression = "if" Expression Block { "elif" Expression Block } [ "else" Block 
 
 (* Parts *)
 
-FnHeader = (FnSingleParameter | FnMultipleParameters) ["->" Type];
-FnSingleParameter = "self" | FnParameter;
-FnMultipleParameters = "(" FnSingleParameter { "," FnParameter} ")";
-FnParameter = IdentiferType;
+FnHeader = (FnParameters) ["->" Type];
+FnParameters = ("self" | FnParameter) { "," FnParameter};
 
 (* Utils *)
 
 Block = "{" { Statement } [Expression] "}";
-TypeBlock = "{" [ IdentiferType ] { "," IdentiferType } "}";
+TypeBlock = "{" [ TypedIdentifier ] { "," TypedIdentifier } "}";
 
-IdentiferType = IDENTIFIER ":" Type;
+TypedIdentifier = IDENTIFIER [":" Type];
 (* NOTE: Type doesn't include anything other than simple named types for now. *)
 Type = IDENTIFIER;

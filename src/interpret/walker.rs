@@ -3,7 +3,10 @@ use std::{
     ops::{Add, Div, Mul, Neg, Sub},
 };
 
-use crate::{lex::token::TokenVariant::*, parse::ast::Expression};
+use crate::parse::ast::{
+    expression::Expression,
+    value::{BinaryOperator, Literal, UnaryOperator},
+};
 use anyhow::Result;
 
 // No state for now.
@@ -20,12 +23,20 @@ impl Walker {
                 let left_value = self.walk(left)?;
                 let right_value = self.walk(right)?;
 
-                let new_value = match op.variant {
-                    OpPlus => left_value + right_value,
-                    OpMinus => left_value - right_value,
-                    OpStar => left_value * right_value,
-                    OpSlash => left_value / right_value,
-                    _ => unreachable!(),
+                let new_value = match op {
+                    BinaryOperator::Plus => left_value + right_value,
+                    BinaryOperator::Minus => left_value - right_value,
+                    BinaryOperator::Star => left_value * right_value,
+                    BinaryOperator::Slash => left_value / right_value,
+                    BinaryOperator::Eq => todo!(),
+                    BinaryOperator::Neq => todo!(),
+                    BinaryOperator::Gt => todo!(),
+                    BinaryOperator::Gte => todo!(),
+                    BinaryOperator::Lt => todo!(),
+                    BinaryOperator::Lte => todo!(),
+                    BinaryOperator::Assign => todo!(),
+                    BinaryOperator::ConstAssign => todo!(),
+                    BinaryOperator::Dot => todo!(),
                 };
 
                 Ok(new_value)
@@ -33,25 +44,25 @@ impl Walker {
             Expression::Unary { op, right } => {
                 let value = self.walk(right)?;
 
-                let new_value = match op.variant {
-                    OpPlus => value,
-                    OpMinus => -value,
-                    OpNot => todo!("Implement boolean arithmetic."),
-                    _ => unreachable!(),
+                let new_value = match op {
+                    UnaryOperator::Plus => value,
+                    UnaryOperator::Minus => -value,
+                    UnaryOperator::Not => todo!("Implement boolean arithmetic."),
                 };
 
                 Ok(new_value)
             }
             Expression::Group(node) => self.walk(node),
             Expression::Literal(token) => {
-                let value = match token.variant {
-                    Int(int) => WalkValue::Int(int as i64),
-                    Float(float) => WalkValue::Float(float as f64),
-                    _ => unreachable!(),
+                let value = match token {
+                    Literal::Int(int) => WalkValue::Int(*int as i64),
+                    Literal::Float(float) => WalkValue::Float(*float as f64),
+                    _ => todo!(),
                 };
 
                 Ok(value)
             }
+            _ => todo!(),
         }
     }
 }

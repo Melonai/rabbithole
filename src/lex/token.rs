@@ -10,7 +10,7 @@ pub struct Token {
     pub variant: TokenVariant,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenVariant {
     // Basic math operators
     OpPlus,
@@ -45,13 +45,19 @@ pub enum TokenVariant {
     Int(u32),
     Float(f32),
     Str(String),
-    Identifier(String),
+
+    Ident(String),
 
     // Keywords
     KeywordFn,
+    KeywordIf,
+    KeywordElif,
+    KeywordElse,
     KeywordForm,
     KeywordType,
     KeywordSelf,
+    KeywordReturn,
+    KeywordPrint,
 
     Unknown(char),
     Eof,
