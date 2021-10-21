@@ -70,7 +70,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         Ok(Statement::Expression(expression))
     }
 
-    fn expression(&mut self) -> Result<Expression> {
+    pub fn expression(&mut self) -> Result<Expression> {
         self.assignment_expression()
     }
 

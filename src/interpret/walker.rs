@@ -46,7 +46,7 @@ impl Walker {
         Ok(result)
     }
 
-    fn walk_expression(&mut self, node: &Expression) -> Result<Value> {
+    pub fn walk_expression(&mut self, node: &Expression) -> Result<Value> {
         match node {
             Expression::Binary { left, op, right } => {
                 let new_value = match op {
