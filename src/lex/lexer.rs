@@ -134,7 +134,7 @@ impl<'s> Lexer<'s> {
         while self
             .chars
             .peek()
-            .map_or(false, |x| x.is_whitespace() && *x != '\n')
+            .map_or(false, |x| x.is_whitespace() || *x == '\n')
         {
             self.advance();
         }
