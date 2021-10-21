@@ -1,161 +1,138 @@
-use std::{
-    fmt::Display,
-    ops::{Add, Div, Mul, Neg, Sub},
-};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::parse::ast::{
     expression::Expression,
-    value::{BinaryOperator, Literal, UnaryOperator},
+    nodes::{BinaryOperator as BinOp, Literal, UnaryOperator as UnOp},
+    statement::Statement,
+    Program,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+
+use super::{scope::Scope, value::Value};
 
 // No state for now.
-pub struct Walker {}
+pub struct Walker {
+    scope: Scope,
+}
 
 impl Walker {
     pub fn new() -> Self {
-        Walker {}
+        Walker {
+            scope: Scope::new(),
+        }
     }
 
-    pub fn walk(&self, node: &Expression) -> Result<WalkValue> {
+    pub fn walk(&mut self, program: &Program) {
+        self.scope.nest();
+        for statement in program.statements.iter() {
+            self.walk_statement(statement).expect("Runtime error.");
+        }
+    }
+
+    fn walk_statement(&mut self, statement: &Statement) -> Result<Option<Value>> {
+        let result = match statement {
+            Statement::Expression(node) => {
+                self.walk_expression(node)?;
+                None
+            }
+            Statement::Print(node) => {
+                let result = self.walk_expression(node)?;
+                println!("{:?}", result);
+                None
+            }
+            Statement::Return(node) => Some(self.walk_expression(node)?),
+        };
+
+        Ok(result)
+    }
+
+    fn walk_expression(&mut self, node: &Expression) -> Result<Value> {
         match node {
             Expression::Binary { left, op, right } => {
-                let left_value = self.walk(left)?;
-                let right_value = self.walk(right)?;
-
                 let new_value = match op {
-                    BinaryOperator::Plus => left_value + right_value,
-                    BinaryOperator::Minus => left_value - right_value,
-                    BinaryOperator::Star => left_value * right_value,
-                    BinaryOperator::Slash => left_value / right_value,
-                    BinaryOperator::Eq => todo!(),
-                    BinaryOperator::Neq => todo!(),
-                    BinaryOperator::Gt => todo!(),
-                    BinaryOperator::Gte => todo!(),
-                    BinaryOperator::Lt => todo!(),
-                    BinaryOperator::Lte => todo!(),
-                    BinaryOperator::Assign => todo!(),
-                    BinaryOperator::ConstAssign => todo!(),
-                    BinaryOperator::Dot => todo!(),
-                };
+                    BinOp::Plus => self
+                        .walk_expression(left)?
+                        .add(self.walk_expression(right)?),
+                    BinOp::Minus => self
+                        .walk_expression(left)?
+                        .sub(self.walk_expression(right)?),
+                    BinOp::Star => self
+                        .walk_expression(left)?
+                        .mul(self.walk_expression(right)?),
+                    BinOp::Slash => self
+                        .walk_expression(left)?
+                        .div(self.walk_expression(right)?),
+                    // No difference between assignments for now.
+                    BinOp::Assign | BinOp::ConstAssign => {
+                        let identifier = match left.as_ref() {
+                            Expression::Identifier(i) => i,
+                            _ => todo!("Lvalues can only be identifiers."),
+                        };
+
+                        let value = self.walk_expression(right)?;
+                        self.scope.set_var(identifier, value.clone());
+                        Ok(value)
+                    }
+                    // Boolean logic comes later.
+                    BinOp::Eq | BinOp::Neq | BinOp::Gt | BinOp::Gte | BinOp::Lt | BinOp::Lte => {
+                        todo!()
+                    }
+                    // No structure access yet.
+                    BinOp::Dot => todo!(),
+                }?;
 
                 Ok(new_value)
             }
             Expression::Unary { op, right } => {
-                let value = self.walk(right)?;
+                let value = self.walk_expression(right)?;
 
                 let new_value = match op {
-                    UnaryOperator::Plus => value,
-                    UnaryOperator::Minus => -value,
-                    UnaryOperator::Not => todo!("Implement boolean arithmetic."),
+                    UnOp::Plus => value,
+                    UnOp::Minus => todo!(),
+                    UnOp::Not => todo!("Implement boolean arithmetic."),
                 };
 
                 Ok(new_value)
             }
-            Expression::Group(node) => self.walk(node),
+            Expression::Group(node) => self.walk_expression(node),
             Expression::Literal(token) => {
                 let value = match token {
-                    Literal::Int(int) => WalkValue::Int(*int as i64),
-                    Literal::Float(float) => WalkValue::Float(*float as f64),
-                    _ => todo!(),
+                    Literal::Int(int) => Value::Int(*int as i64),
+                    Literal::Float(float) => Value::Float(*float as f64),
+                    Literal::Str(string) => Value::Str(string.clone()),
                 };
 
                 Ok(value)
             }
-            _ => todo!(),
-        }
-    }
-}
+            Expression::Block(block) => {
+                self.scope.nest();
 
-pub enum WalkValue {
-    Float(f64),
-    Int(i64),
-}
+                for statement in block.statements.iter() {
+                    self.walk_statement(statement)?;
+                }
 
-impl Add for WalkValue {
-    type Output = Self;
+                let result = if let Some(tail_expression) = &block.tail_expression {
+                    Ok(self.walk_expression(tail_expression)?)
+                } else {
+                    Ok(Value::Void)
+                };
 
-    fn add(self, rhs: Self) -> Self::Output {
-        match self {
-            Self::Float(float) => match rhs {
-                Self::Float(other_float) => Self::Float(float + other_float),
-                Self::Int(other_int) => Self::Float(float + other_int as f64),
-            },
-            Self::Int(int) => match rhs {
-                Self::Float(other_float) => Self::Float(int as f64 + other_float),
-                Self::Int(other_int) => Self::Int(int + other_int),
-            },
-        }
-    }
-}
+                self.scope.unnest();
 
-impl Sub for WalkValue {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        match self {
-            Self::Float(float) => match rhs {
-                Self::Float(other_float) => Self::Float(float - other_float),
-                Self::Int(other_int) => Self::Float(float - other_int as f64),
-            },
-            Self::Int(int) => match rhs {
-                Self::Float(other_float) => Self::Float(int as f64 - other_float),
-                Self::Int(other_int) => Self::Int(int - other_int),
-            },
-        }
-    }
-}
-
-impl Mul for WalkValue {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        match self {
-            Self::Float(float) => match rhs {
-                Self::Float(other_float) => Self::Float(float * other_float),
-                Self::Int(other_int) => Self::Float(float * other_int as f64),
-            },
-            Self::Int(int) => match rhs {
-                Self::Float(other_float) => Self::Float(int as f64 * other_float),
-                Self::Int(other_int) => Self::Int(int * other_int),
-            },
-        }
-    }
-}
-
-impl Div for WalkValue {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        match self {
-            Self::Float(float) => match rhs {
-                Self::Float(other_float) => Self::Float(float / other_float),
-                Self::Int(other_int) => Self::Float(float / other_int as f64),
-            },
-            Self::Int(int) => match rhs {
-                Self::Float(other_float) => Self::Float(int as f64 / other_float),
-                Self::Int(other_int) => Self::Float(int as f64 / other_int as f64),
-            },
-        }
-    }
-}
-
-impl Neg for WalkValue {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        match self {
-            Self::Float(float) => Self::Float(-float),
-            Self::Int(int) => Self::Int(-int),
-        }
-    }
-}
-
-impl Display for WalkValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Float(float) => write!(f, "{}", float),
-            Self::Int(int) => write!(f, "{}", int),
+                result
+            }
+            Expression::Fn(fn_node) => {
+                let node = fn_node.as_ref().clone();
+                Ok(Value::Fn(RefCell::new(Rc::new(node))))
+            }
+            Expression::If(_) => todo!(),
+            Expression::Identifier(ident) => {
+                if let Some(value) = self.scope.get_var(ident) {
+                    Ok(value)
+                } else {
+                    Err(anyhow!("Unknown identifier: {}.", ident))
+                }
+            }
         }
     }
 }

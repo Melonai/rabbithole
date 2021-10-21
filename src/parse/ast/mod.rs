@@ -4,7 +4,7 @@ use self::statement::Statement;
 
 pub mod expression;
 pub mod statement;
-pub mod value;
+pub mod nodes;
 
 #[derive(Debug)]
 pub struct Program {

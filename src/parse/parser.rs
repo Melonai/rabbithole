@@ -1,6 +1,6 @@
 use super::ast::expression::Expression;
+use super::ast::nodes::UnaryOperator;
 use super::ast::statement::Statement;
-use super::ast::value::UnaryOperator;
 use super::ast::Program;
 use crate::check;
 use crate::consume;
@@ -8,12 +8,14 @@ use crate::consume_if;
 use crate::inner;
 use crate::lex::token::Token;
 use crate::lex::token::TokenVariant::*;
-use crate::parse::ast::value::BinaryOperator;
-use crate::parse::ast::value::Block;
-use crate::parse::ast::value::ConditionalBlock;
-use crate::parse::ast::value::FnHeader;
-use crate::parse::ast::value::Literal;
-use crate::parse::ast::value::TypedIdentifier;
+use crate::parse::ast::nodes::BinaryOperator;
+use crate::parse::ast::nodes::BlockNode;
+use crate::parse::ast::nodes::ConditionalBlock;
+use crate::parse::ast::nodes::FnHeader;
+use crate::parse::ast::nodes::FnNode;
+use crate::parse::ast::nodes::IfNode;
+use crate::parse::ast::nodes::Literal;
+use crate::parse::ast::nodes::TypedIdentifier;
 use anyhow::anyhow;
 use anyhow::Result;
 use std::iter::Peekable;
@@ -203,10 +205,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
                     let body = self.block()?;
 
-                    Ok(Expression::Fn {
-                        header,
-                        body: Box::new(body),
-                    })
+                    Ok(Expression::Fn(Box::new(FnNode { header, body })))
                 }
                 KeywordIf => {
                     consume!(self, KeywordIf)?;
@@ -232,16 +231,16 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                         });
                     }
 
-                    let else_conditional = if consume_if!(self, KeywordElse).is_some() {
+                    let else_block = if consume_if!(self, KeywordElse).is_some() {
                         Some(self.block()?)
                     } else {
                         None
                     };
 
-                    Ok(Expression::If {
+                    Ok(Expression::If(Box::new(IfNode {
                         conditionals,
-                        else_block: else_conditional.map(Box::new),
-                    })
+                        else_block,
+                    })))
                 }
                 _ => Err(anyhow!("Unexpected token: {:?}", token.variant)),
             }
@@ -250,7 +249,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         }
     }
 
-    fn block(&mut self) -> Result<Block> {
+    fn block(&mut self) -> Result<BlockNode> {
         consume!(self, BlockOpen)?;
 
         let mut statements = Vec::new();
@@ -279,7 +278,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         consume!(self, BlockClose)?;
 
-        Ok(Block {
+        Ok(BlockNode {
             statements,
             tail_expression,
         })
