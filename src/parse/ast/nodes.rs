@@ -42,7 +42,6 @@ impl BinaryOperator {
 
 #[derive(Debug, Clone, Copy)]
 pub enum UnaryOperator {
-    Plus,
     Minus,
     Not,
 }
@@ -50,7 +49,6 @@ pub enum UnaryOperator {
 impl UnaryOperator {
     pub fn from_token(token: Token) -> Self {
         match token.variant {
-            OpPlus => Self::Plus,
             OpMinus => Self::Minus,
             OpNot => Self::Not,
             _ => panic!("Can't create unary operator from '{:?}'.", token.variant),

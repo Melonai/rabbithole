@@ -87,9 +87,8 @@ impl Walker {
                 let value = self.walk_expression(right)?;
 
                 let new_value = match op {
-                    UnOp::Plus => value,
-                    UnOp::Minus => todo!(),
-                    UnOp::Not => todo!("Implement boolean arithmetic."),
+                    UnOp::Minus => value.neg()?,
+                    UnOp::Not => value.not()?,
                 };
 
                 Ok(new_value)

@@ -148,6 +148,21 @@ impl Value {
             _ => Err(anyhow!("Left operand can't be compared.")),
         }
     }
+
+    pub fn neg(self) -> Result<Value> {
+        match self {
+            Value::Float(float) => Ok(Value::Float(-float)),
+            Value::Int(int) => Ok(Value::Int(-int)),
+            _ => Err(anyhow!("Can't negate value.")),
+        }
+    }
+
+    pub fn not(self) -> Result<Value> {
+        match self {
+            Value::Bool(bool) => Ok(Value::Bool(bool)),
+            _ => Err(anyhow!("Can't flip non-bool value.")),
+        }
+    }
 }
 
 impl Display for Value {
