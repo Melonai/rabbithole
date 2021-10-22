@@ -1,12 +1,8 @@
 #[macro_export]
 macro_rules! check {
     ($self:ident, $($variant:pat_param)|+) => {
-        if let Some(token) = $self.tokens.peek() {
-            if let Token {variant: $( $variant )|+, ..} = token {
-                true
-            } else {
-                false
-            }
+        if let Some(Token {variant: $( $variant )|+, ..}) = $self.tokens.peek() {
+            true
         } else {
             false
         }
@@ -36,12 +32,8 @@ macro_rules! consume {
 #[macro_export]
 macro_rules! consume_if {
     ($self:ident, $($variant:pat_param)|+) => {
-        if let Some(token) = $self.tokens.peek() {
-            if let Token {variant: $( $variant )|+, ..} = token {
-                Some($self.tokens.next().unwrap())
-            } else {
-                None
-            }
+        if let Some(Token {variant: $( $variant )|+, ..}) = $self.tokens.peek() {
+            Some($self.tokens.next().unwrap())
         } else {
             None
         }
@@ -53,7 +45,7 @@ macro_rules! inner {
     ($token:expr, $variant:path ) => {
         match $token.variant {
             $variant(inner) => inner,
-            _ => panic!("Tried getting inner content of incorrect variant.")
+            _ => panic!("Tried getting inner content of incorrect variant."),
         }
     };
 }
