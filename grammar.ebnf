@@ -18,14 +18,16 @@ Expression = AssignmentExpression;
 (* Expressions affected by precedence*)
 
 (* NOTE: Only allow IDENTIFIERs and their fields as the LValue for now. *)
-AssignmentExpression = IDENTIFIER {"." IDENTIFIER} ("=" | ":=") AssignmentExpression | TermExpression;
+AssignmentExpression = IDENTIFIER {"." IDENTIFIER} ("=" | ":=") AssignmentExpression | EqualityExpression;
+EqualityExpression = ComparisonExpression { ("==" | "!=") ComparisonExpression };
+ComparisonExpression = TermExpression { ("<" | "<=" | ">" | ">=") TermExpression };
 TermExpression = FactorExpression { ("+" | "-") FactorExpression };
 FactorExpression = UnaryExpression { ("*" | "/") UnaryExpression };
 UnaryExpression = ( "-" | "!" ) UnaryExpression | UnitExpression ;
                 
 (* Unaffected Expressions *)
 
-UnitExpression = FLOAT | INT | STR | GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
+UnitExpression = FLOAT | INT | STR | TRUE | FALSE |GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
 
 GroupExpression = "(" Expression ")";
 BlockExpression = Block;

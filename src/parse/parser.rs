@@ -76,7 +76,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn assignment_expression(&mut self) -> Result<Expression> {
         // Parse any expressions as l-values for now.
-        let left = self.term_expression()?;
+        let left = self.equality_expression()?;
 
         if let Some(op) = consume_if!(self, Assign | ConstAssign) {
             let right = self.assignment_expression()?;
@@ -89,6 +89,38 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         } else {
             Ok(left)
         }
+    }
+
+    fn equality_expression(&mut self) -> Result<Expression> {
+        let mut left = self.comparison_expression()?;
+
+        while let Some(op) = consume_if!(self, OpEq | OpNeq) {
+            let right = self.comparison_expression()?;
+
+            left = Expression::Binary {
+                left: Box::new(left),
+                op: BinaryOperator::from_token(op),
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    fn comparison_expression(&mut self) -> Result<Expression> {
+        let mut left = self.term_expression()?;
+
+        while let Some(op) = consume_if!(self, OpGt | OpGte | OpLt | OpLte) {
+            let right = self.term_expression()?;
+
+            left = Expression::Binary {
+                left: Box::new(left),
+                op: BinaryOperator::from_token(op),
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
     }
 
     fn term_expression(&mut self) -> Result<Expression> {
@@ -143,10 +175,6 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                     let literal = self.tokens.next().unwrap();
                     Ok(Expression::Literal(Literal::from_token(literal)))
                 }
-                // Identifier(_) => match self.tokens.next().unwrap().variant {
-                //     Identifier(identifier) => Ok(Expression::Identifier(identifier)),
-                //     _ => unreachable!(),
-                // },
                 Ident(_) => Ok(Expression::Identifier(inner!(
                     self.tokens.next().unwrap(),
                     Ident

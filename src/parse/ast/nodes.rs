@@ -63,6 +63,7 @@ pub enum Literal {
     Int(u32),
     Float(f32),
     Str(String),
+    Bool(bool),
 }
 
 impl Literal {
@@ -71,6 +72,8 @@ impl Literal {
             Int(int) => Self::Int(int),
             Float(float) => Self::Float(float),
             Str(string) => Self::Str(string),
+            KeywordTrue => Self::Bool(true),
+            KeywordFalse => Self::Bool(false),
             _ => panic!("Can't create literal from '{:?}'.", token.variant),
         }
     }

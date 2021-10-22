@@ -9,6 +9,7 @@ pub enum Value {
     Str(String),
     Float(f64),
     Int(i64),
+    Bool(bool),
     Fn(Ref<FnNode>),
     Void,
 }
@@ -85,97 +86,66 @@ impl Value {
             _ => Err(anyhow!("Left operand can't be multiplied.")),
         }
     }
+
+    pub fn eq(self, rhs: Value) -> Result<Value> {
+        match self {
+            Value::Str(l) => match rhs {
+                Value::Str(r) => Ok(Value::Bool(l == r)),
+                _ => Ok(Value::Bool(false)),
+            },
+            Value::Float(l) => match rhs {
+                Value::Float(r) => Ok(Value::Bool(l == r)),
+                _ => Ok(Value::Bool(false)),
+            },
+            Value::Int(l) => match rhs {
+                Value::Int(r) => Ok(Value::Bool(l == r)),
+                _ => Ok(Value::Bool(false)),
+            },
+            Value::Bool(l) => match rhs {
+                Value::Bool(r) => Ok(Value::Bool(l == r)),
+                _ => Ok(Value::Bool(false)),
+            },
+            _ => Ok(Value::Bool(false)),
+        }
+    }
+
+    pub fn neq(self, rhs: Value) -> Result<Value> {
+        if let Ok(Value::Bool(value)) = self.eq(rhs) {
+            Ok(Value::Bool(!value))
+        } else {
+            unreachable!()
+        }
+    }
+
+    pub fn gt(self, rhs: Value) -> Result<Value> {
+        match self {
+            Value::Float(r) => match rhs {
+                Value::Float(l) => Ok(Value::Bool(r > l)),
+                Value::Int(l) => Ok(Value::Bool(r > l as f64)),
+                _ => Err(anyhow!("Right operand can't be compared.")),
+            },
+            Value::Int(r) => match rhs {
+                Value::Float(l) => Ok(Value::Bool(r as f64 > l)),
+                Value::Int(l) => Ok(Value::Bool(r > l)),
+                _ => Err(anyhow!("Right operand can't be compared.")),
+            },
+            _ => Err(anyhow!("Left operand can't be compared.")),
+        }
+    }
+
+    pub fn gte(self, rhs: Value) -> Result<Value> {
+        match self {
+            Value::Float(r) => match rhs {
+                Value::Float(l) => Ok(Value::Bool(r >= l)),
+                Value::Int(l) => Ok(Value::Bool(r >= l as f64)),
+                _ => Err(anyhow!("Right operand can't be compared.")),
+            },
+            Value::Int(r) => match rhs {
+                Value::Float(l) => Ok(Value::Bool(r as f64 >= l)),
+                Value::Int(l) => Ok(Value::Bool(r >= l)),
+                _ => Err(anyhow!("Right operand can't be compared.")),
+            },
+            _ => Err(anyhow!("Left operand can't be compared.")),
+        }
+    }
 }
-
-// pub enum Value {
-//     Float(f64),
-//     Int(i64),
-// }
-
-// impl Add for WalkValue {
-//     type Output = Self;
-
-//     fn add(self, rhs: Self) -> Self::Output {
-//         match self {
-//             Self::Float(float) => match rhs {
-//                 Self::Float(other_float) => Self::Float(float + other_float),
-//                 Self::Int(other_int) => Self::Float(float + other_int as f64),
-//             },
-//             Self::Int(int) => match rhs {
-//                 Self::Float(other_float) => Self::Float(int as f64 + other_float),
-//                 Self::Int(other_int) => Self::Int(int + other_int),
-//             },
-//         }
-//     }
-// }
-
-// impl Sub for WalkValue {
-//     type Output = Self;
-
-//     fn sub(self, rhs: Self) -> Self::Output {
-//         match self {
-//             Self::Float(float) => match rhs {
-//                 Self::Float(other_float) => Self::Float(float - other_float),
-//                 Self::Int(other_int) => Self::Float(float - other_int as f64),
-//             },
-//             Self::Int(int) => match rhs {
-//                 Self::Float(other_float) => Self::Float(int as f64 - other_float),
-//                 Self::Int(other_int) => Self::Int(int - other_int),
-//             },
-//         }
-//     }
-// }
-
-// impl Mul for WalkValue {
-//     type Output = Self;
-
-//     fn mul(self, rhs: Self) -> Self::Output {
-//         match self {
-//             Self::Float(float) => match rhs {
-//                 Self::Float(other_float) => Self::Float(float * other_float),
-//                 Self::Int(other_int) => Self::Float(float * other_int as f64),
-//             },
-//             Self::Int(int) => match rhs {
-//                 Self::Float(other_float) => Self::Float(int as f64 * other_float),
-//                 Self::Int(other_int) => Self::Int(int * other_int),
-//             },
-//         }
-//     }
-// }
-
-// impl Div for WalkValue {
-//     type Output = Self;
-
-//     fn div(self, rhs: Self) -> Self::Output {
-//         match self {
-//             Self::Float(float) => match rhs {
-//                 Self::Float(other_float) => Self::Float(float / other_float),
-//                 Self::Int(other_int) => Self::Float(float / other_int as f64),
-//             },
-//             Self::Int(int) => match rhs {
-//                 Self::Float(other_float) => Self::Float(int as f64 / other_float),
-//                 Self::Int(other_int) => Self::Float(int as f64 / other_int as f64),
-//             },
-//         }
-//     }
-// }
-
-// impl Neg for WalkValue {
-//     type Output = Self;
-
-//     fn neg(self) -> Self::Output {
-//         match self {
-//             Self::Float(float) => Self::Float(-float),
-//             Self::Int(int) => Self::Int(-int),
-//         }
-//     }
-// }
-
-// impl Display for WalkValue {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Self::Float(float) => write!(f, "{}", float),
-//             Self::Int(int) => write!(f, "{}", int),
-//         }
-//     }
-// }

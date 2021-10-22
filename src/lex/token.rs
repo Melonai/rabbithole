@@ -55,6 +55,8 @@ pub enum TokenVariant {
     KeywordElse,
     KeywordForm,
     KeywordType,
+    KeywordTrue,
+    KeywordFalse,
     KeywordSelf,
     KeywordReturn,
     KeywordPrint,

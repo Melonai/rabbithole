@@ -187,6 +187,8 @@ impl<'s> Lexer<'s> {
             "type" => TokenVariant::KeywordType,
             "form" => TokenVariant::KeywordForm,
             "self" => TokenVariant::KeywordSelf,
+            "true" => TokenVariant::KeywordTrue,
+            "false" => TokenVariant::KeywordFalse,
             "return" => TokenVariant::KeywordReturn,
             "print" => TokenVariant::KeywordPrint,
             _ => TokenVariant::Ident(buffer),
