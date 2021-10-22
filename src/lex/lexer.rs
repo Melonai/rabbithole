@@ -18,7 +18,9 @@ impl Iterator for Lexer<'_> {
             return None;
         }
 
-        if let None = self.chars.peek() {
+        self.skip_non_code();
+
+        if self.peek().is_none() {
             self.done = true;
             return Some(Token {
                 location: self.location,
@@ -26,9 +28,7 @@ impl Iterator for Lexer<'_> {
             });
         }
 
-        self.skip_whitespace();
-
-        let c = *self.chars.peek()?;
+        let c = self.peek()?;
 
         let token = if c.is_numeric() {
             self.number()
@@ -112,6 +112,10 @@ impl<'s> Lexer<'s> {
         }
     }
 
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().copied()
+    }
+
     fn advance(&mut self) -> Option<char> {
         let next = self.chars.next();
         if let Some(c) = next {
@@ -119,7 +123,7 @@ impl<'s> Lexer<'s> {
                 self.location.row += 1;
                 self.location.col = 0;
             } else {
-                self.location.row += 1;
+                self.location.col += 1;
             }
         }
 
@@ -130,13 +134,25 @@ impl<'s> Lexer<'s> {
         self.chars.next_if_eq(&c).is_some()
     }
 
-    fn skip_whitespace(&mut self) {
-        while self
-            .chars
-            .peek()
-            .map_or(false, |x| x.is_whitespace() || *x == '\n')
-        {
-            self.advance();
+    fn skip_non_code(&mut self) {
+        let mut is_in_comment = false;
+        loop {
+            if let Some(c) = self.peek() {
+                if is_in_comment {
+                    if c == '\n' {
+                        is_in_comment = false;
+                    }
+                } else {
+                    if c == '#' {
+                        is_in_comment = true;
+                    } else if !c.is_whitespace() && c != '\n' {
+                        break;
+                    }
+                }
+                self.advance();
+            } else {
+                break;
+            }
         }
     }
 
@@ -146,11 +162,7 @@ impl<'s> Lexer<'s> {
         let mut is_integer = true;
         let mut buffer = String::new();
 
-        while self
-            .chars
-            .peek()
-            .map_or(false, |&c| c.is_numeric() || c == '.')
-        {
+        while self.peek().map_or(false, |c| c.is_numeric() || c == '.') {
             let c = self.advance().unwrap();
             if c == '.' {
                 is_integer = false;
@@ -174,7 +186,7 @@ impl<'s> Lexer<'s> {
 
         let mut buffer = String::new();
 
-        while self.chars.peek().map_or(false, |&c| c.is_alphabetic()) {
+        while self.peek().map_or(false, |c| c.is_alphabetic()) {
             let c = self.advance().unwrap();
             buffer.push(c);
         }
