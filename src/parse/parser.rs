@@ -171,7 +171,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
     fn unit_expression(&mut self) -> Result<Expression> {
         if let Some(token) = self.tokens.peek() {
             match token.variant {
-                Int(_) | Float(_) | Str(_) => {
+                Int(_) | Float(_) | Str(_) | KeywordTrue | KeywordFalse => {
                     let literal = self.tokens.next().unwrap();
                     Ok(Expression::Literal(Literal::from_token(literal)))
                 }
