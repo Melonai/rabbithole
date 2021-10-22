@@ -136,23 +136,17 @@ impl<'s> Lexer<'s> {
 
     fn skip_non_code(&mut self) {
         let mut is_in_comment = false;
-        loop {
-            if let Some(c) = self.peek() {
-                if is_in_comment {
-                    if c == '\n' {
-                        is_in_comment = false;
-                    }
-                } else {
-                    if c == '#' {
-                        is_in_comment = true;
-                    } else if !c.is_whitespace() && c != '\n' {
-                        break;
-                    }
+        while let Some(c) = self.peek() {
+            if is_in_comment {
+                if c == '\n' {
+                    is_in_comment = false;
                 }
-                self.advance();
-            } else {
+            } else if c == '#' {
+                is_in_comment = true;
+            } else if !c.is_whitespace() && c != '\n' {
                 break;
             }
+            self.advance();
         }
     }
 

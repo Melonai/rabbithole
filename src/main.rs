@@ -33,7 +33,7 @@ fn file(filename: impl AsRef<Path>) {
 }
 
 fn repl() {
-    const PROMPT: &'static str = "🐇: ";
+    const PROMPT: &str = "🐇: ";
 
     let mut walker = Walker::new();
 
