@@ -36,7 +36,7 @@ impl Walker {
             }
             Statement::Print(node) => {
                 let result = self.walk_expression(node)?;
-                println!("{:?}", result);
+                println!("{}", result);
                 None
             }
             Statement::Return(node) => Some(self.walk_expression(node)?),

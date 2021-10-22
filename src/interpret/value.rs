@@ -1,6 +1,6 @@
 use crate::parse::ast::nodes::FnNode;
 use anyhow::{anyhow, Result};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 type Ref<T> = RefCell<Rc<T>>;
 
@@ -146,6 +146,19 @@ impl Value {
                 _ => Err(anyhow!("Right operand can't be compared.")),
             },
             _ => Err(anyhow!("Left operand can't be compared.")),
+        }
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Str(v) => write!(f, "{}", v),
+            Value::Float(v) => write!(f, "{}", v),
+            Value::Int(v) => write!(f, "{}", v),
+            Value::Bool(v) => write!(f, "{}", v),
+            Value::Fn(v) => write!(f, "<fn {:?}>", v.as_ptr()),
+            Value::Void => write!(f, "<void>"),
         }
     }
 }
