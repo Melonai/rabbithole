@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::nodes::{BinaryOperator, BlockNode, FnNode, Identifier, IfNode, Literal, UnaryOperator};
+use super::nodes::{
+    BinaryOperator, BlockNode, FnNode, Identifier, IfNode, Literal, LoopNode, UnaryOperator,
+};
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -17,6 +19,7 @@ pub enum Expression {
     Block(Box<BlockNode>),
     Fn(Box<FnNode>),
     If(Box<IfNode>),
+    Loop(Box<LoopNode>),
     Literal(Literal),
     Identifier(Identifier),
 }
@@ -96,6 +99,16 @@ impl Expression {
                     writeln!(f, "{}- Else:", pad)?;
                     Self::block_fmt(f, e, depth + 1)?;
                 }
+            }
+            Expression::Loop(node) => {
+                writeln!(f, "{}Loop:", pad)?;
+                if let Some(loop_condition) = &node.condition {
+                    writeln!(f, "{}- Condition:", pad)?;
+                    loop_condition.nested_fmt(f, depth + 1)?;
+                }
+
+                writeln!(f, "{}- Body:", pad)?;
+                Self::block_fmt(f, &node.body, depth + 1)?;
             }
         }
 

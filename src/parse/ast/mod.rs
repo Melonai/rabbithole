@@ -3,8 +3,8 @@ use std::fmt::Display;
 use self::statement::Statement;
 
 pub mod expression;
-pub mod statement;
 pub mod nodes;
+pub mod statement;
 
 #[derive(Debug)]
 pub struct Program {

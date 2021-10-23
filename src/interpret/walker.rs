@@ -2,13 +2,16 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::parse::ast::{
     expression::Expression,
-    nodes::{BinaryOperator as BinOp, BlockNode, Literal, UnaryOperator as UnOp},
+    nodes::{BinaryOperator as BinOp, BlockNode, Identifier, Literal, UnaryOperator as UnOp},
     statement::Statement,
     Program,
 };
-use anyhow::{anyhow, Result};
+use thiserror::Error;
 
-use super::{scope::Scope, value::Value};
+use super::{
+    scope::Scope,
+    value::{OperationError, Value},
+};
 
 pub struct Walker {
     scope: Scope,
@@ -28,7 +31,7 @@ impl Walker {
         }
     }
 
-    fn walk_statement(&mut self, statement: &Statement) -> Result<Option<Value>> {
+    fn walk_statement(&mut self, statement: &Statement) -> Result<Option<Value>, WalkerError> {
         let result = match statement {
             Statement::Expression(node) => {
                 self.walk_expression(node)?;
@@ -40,12 +43,23 @@ impl Walker {
                 None
             }
             Statement::Return(node) => Some(self.walk_expression(node)?),
+            Statement::Break(node) => {
+                let returned = if let Some(expression) = node {
+                    Some(self.walk_expression(expression)?)
+                } else {
+                    None
+                };
+                // If there's a loop above us it will catch this error.
+                return Err(WalkerError::LoopBreak(returned));
+            }
+            // Same here.
+            Statement::Continue => return Err(WalkerError::LoopContinue),
         };
 
         Ok(result)
     }
 
-    pub fn walk_expression(&mut self, node: &Expression) -> Result<Value> {
+    pub fn walk_expression(&mut self, node: &Expression) -> Result<Value, WalkerError> {
         match node {
             Expression::Binary { left, op, right } => {
                 // Assignment
@@ -79,7 +93,8 @@ impl Walker {
                     // No structure access yet.
                     BinOp::Dot => todo!(),
                     _ => unreachable!(),
-                }?;
+                }
+                .map_err(WalkerError::OperationError)?;
 
                 Ok(new_value)
             }
@@ -87,9 +102,10 @@ impl Walker {
                 let value = self.walk_expression(right)?;
 
                 let new_value = match op {
-                    UnOp::Minus => value.neg()?,
-                    UnOp::Not => value.not()?,
-                };
+                    UnOp::Minus => value.neg(),
+                    UnOp::Not => value.not(),
+                }
+                .map_err(WalkerError::OperationError)?;
 
                 Ok(new_value)
             }
@@ -116,9 +132,7 @@ impl Walker {
                             return self.walk_block(&conditional.block);
                         }
                     } else {
-                        return Err(anyhow!(
-                            "If and Elif expressions can only take boolean values as conditions."
-                        ));
+                        return Err(WalkerError::WrongIfConditionType);
                     }
                 }
 
@@ -128,17 +142,53 @@ impl Walker {
                     Ok(Value::Void)
                 }
             }
+            Expression::Loop(loop_node) => {
+                if let Some(condition) = &loop_node.condition {
+                    loop {
+                        if let Value::Bool(should_repeat) = self.walk_expression(condition)? {
+                            if should_repeat {
+                                match self.walk_block(&loop_node.body) {
+                                    Err(WalkerError::LoopBreak(loop_value)) => {
+                                        return Ok(loop_value.unwrap_or(Value::Void));
+                                    }
+                                    // Do nothing for continue and continue looping of course, you dummy.
+                                    Err(WalkerError::LoopContinue) => {}
+                                    // This is probably an actual error.
+                                    Err(x) => return Err(x),
+                                    _ => {}
+                                }
+                            } else {
+                                return Ok(Value::Void);
+                            }
+                        } else {
+                            return Err(WalkerError::WrongLoopConditionType);
+                        }
+                    }
+                } else {
+                    // Same as above.
+                    loop {
+                        match self.walk_block(&loop_node.body) {
+                            Err(WalkerError::LoopBreak(loop_value)) => {
+                                break Ok(loop_value.unwrap_or(Value::Void));
+                            }
+                            Err(WalkerError::LoopContinue) => {}
+                            Err(x) => return Err(x),
+                            _ => {}
+                        }
+                    }
+                }
+            }
             Expression::Identifier(ident) => {
                 if let Some(value) = self.scope.get_var(ident) {
                     Ok(value)
                 } else {
-                    Err(anyhow!("Unknown identifier: {}.", ident))
+                    Err(WalkerError::UnknownIdentifier(ident.clone()))
                 }
             }
         }
     }
 
-    fn walk_block(&mut self, block: &BlockNode) -> Result<Value> {
+    fn walk_block(&mut self, block: &BlockNode) -> Result<Value, WalkerError> {
         self.scope.nest();
 
         for statement in block.statements.iter() {
@@ -155,4 +205,23 @@ impl Walker {
 
         result
     }
+}
+
+// TODO: Add source maps to the errors.
+#[derive(Error, Debug)]
+pub enum WalkerError {
+    #[error("Unknown identifier '{0}'")]
+    UnknownIdentifier(Identifier),
+    #[error("Loop expressions can only take boolean values as conditions.")]
+    WrongLoopConditionType,
+    #[error("If and Elif expressions can only take boolean values as conditions.")]
+    WrongIfConditionType,
+    #[error(transparent)]
+    OperationError(OperationError),
+    // These are used for loop control flow and are only errors
+    // if continue and break statements are used outside of loops.
+    #[error("Continue statements are only valid inside loops.")]
+    LoopContinue,
+    #[error("Break statements are only valid inside loops.")]
+    LoopBreak(Option<Value>),
 }

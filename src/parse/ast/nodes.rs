@@ -107,6 +107,12 @@ pub struct IfNode {
 }
 
 #[derive(Debug, Clone)]
+pub struct LoopNode {
+    pub condition: Option<Expression>,
+    pub body: BlockNode,
+}
+
+#[derive(Debug, Clone)]
 pub struct BlockNode {
     pub statements: Vec<Statement>,
     pub tail_expression: Option<Expression>,

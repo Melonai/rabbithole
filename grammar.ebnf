@@ -4,10 +4,12 @@ Program = {Statement} EOF;
 
 (* Statement *)
 
-Statement = ExpressionStatement | ReturnStatement | PrintStatement;
+Statement = ExpressionStatement | ReturnStatement | BreakStatement | ContinueExpression | PrintStatement;
 
 ExpressionStatement = Expression ";";
 ReturnStatement = "return" Expression ";";
+BreakStatement = "break" [Expression] ";";
+ContinueStatement = "continue" ";";
 (* NOTE: Hard-coded PrintStatement until Rabbithole has an standard library *)
 PrintStatement = "print" Expression ";";
 
@@ -27,7 +29,7 @@ UnaryExpression = ( "-" | "!" ) UnaryExpression | UnitExpression ;
                 
 (* Unaffected Expressions *)
 
-UnitExpression = FLOAT | INT | STR | TRUE | FALSE |GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
+UnitExpression = FLOAT | INT | STR | TRUE | FALSE | GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
 
 GroupExpression = "(" Expression ")";
 BlockExpression = Block;
@@ -36,6 +38,7 @@ TypeExpression = "type" TypeBlock;
 (* NOTE: Will associated functions clash with fields? *)
 FormExpression = "form" TypeBlock;
 IfExpression = "if" Expression Block { "elif" Expression Block } [ "else" Block ];
+LoopExpression = "loop" ["if" Expression] Block;
 
 (* Parts *)
 
