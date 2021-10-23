@@ -32,7 +32,7 @@ impl Iterator for Lexer<'_> {
 
         let token = if c.is_numeric() {
             self.number()
-        } else if c.is_alphabetic() {
+        } else if c.is_alphabetic() || c == '_' {
             self.identifier()
         } else if c == '"' {
             self.str()
@@ -180,7 +180,7 @@ impl<'s> Lexer<'s> {
 
         let mut buffer = String::new();
 
-        while self.peek().map_or(false, |c| c.is_alphabetic()) {
+        while self.peek().map_or(false, |c| c.is_alphabetic() || c == '_') {
             let c = self.advance().unwrap();
             buffer.push(c);
         }
