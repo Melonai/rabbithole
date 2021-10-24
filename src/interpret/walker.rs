@@ -2,14 +2,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::parse::ast::{
     expression::Expression,
-    nodes::{BinaryOperator as BinOp, BlockNode, Identifier, SimpleLiteral, UnaryOperator as UnOp},
+    nodes::{BinaryOperator as BinOp, BlockNode, SimpleLiteral, UnaryOperator as UnOp},
     statement::Statement,
     Program,
 };
 use thiserror::Error;
 
 use super::{
-    scope::Scope,
+    scope::{Scope, ScopeError},
     value::{OperationError, Value},
 };
 
@@ -63,16 +63,10 @@ impl Walker {
         match node {
             Expression::Binary { left, op, right } => {
                 // Assignment
-                // No difference between assignments for now.
-                if let BinOp::ConstAssign | BinOp::Assign = op {
-                    let identifier = match left.as_ref() {
-                        Expression::Identifier(i) => i,
-                        _ => todo!("Lvalues can only be identifiers."),
-                    };
-
-                    let value = self.walk_expression(right)?;
-                    self.scope.set_var(identifier, value.clone());
-                    return Ok(value);
+                match op {
+                    BinOp::ConstAssign => return self.assing_to_lvalue(left, right, true),
+                    BinOp::Assign => return self.assing_to_lvalue(left, right, false),
+                    _ => {}
                 }
 
                 let left = self.walk_expression(left)?;
@@ -90,8 +84,7 @@ impl Walker {
                     BinOp::Gte => left.gte(right),
                     BinOp::Lt => right.gt(left),
                     BinOp::Lte => right.gte(left),
-                    // No structure access yet.
-                    BinOp::Dot => todo!(),
+                    BinOp::Dot => todo!("Structures not implemented yet."),
                     _ => unreachable!(),
                 }
                 .map_err(WalkerError::OperationError)
@@ -109,7 +102,10 @@ impl Walker {
             Expression::ArrayAccess(node) => {
                 let array = self.walk_expression(&node.array)?;
                 let index = self.walk_expression(&node.index)?;
-                array.subscript(index).map_err(WalkerError::OperationError)
+                array
+                    .subscript(index)
+                    .map(|v| v.clone())
+                    .map_err(WalkerError::OperationError)
             }
             Expression::MemberAccess(_) => todo!("Structures not implemented yet."),
             Expression::Group(node) => self.walk_expression(node),
@@ -118,7 +114,7 @@ impl Walker {
                 for expression in &node.elements {
                     elements.push(self.walk_expression(expression)?);
                 }
-                Ok(Value::Array(elements))
+                Ok(Value::Array(Rc::new(RefCell::new(elements))))
             }
             Expression::SimpleLiteral(token) => {
                 let value = match token {
@@ -133,7 +129,7 @@ impl Walker {
             Expression::Block(block) => self.walk_block(block.as_ref()),
             Expression::FnLiteral(fn_node) => {
                 let node = fn_node.as_ref().clone();
-                Ok(Value::Fn(RefCell::new(Rc::new(node))))
+                Ok(Value::Fn(Rc::new(RefCell::new(node))))
             }
             Expression::If(if_node) => {
                 for conditional in &if_node.conditionals {
@@ -189,11 +185,7 @@ impl Walker {
                 }
             }
             Expression::Identifier(ident) => {
-                if let Some(value) = self.scope.get_var(ident) {
-                    Ok(value)
-                } else {
-                    Err(WalkerError::UnknownIdentifier(ident.clone()))
-                }
+                self.scope.get_var(ident).map_err(WalkerError::ScopeError)
             }
         }
     }
@@ -215,17 +207,48 @@ impl Walker {
 
         result
     }
+
+    pub fn assing_to_lvalue(
+        &mut self,
+        lvalue: &Expression,
+        rvalue: &Expression,
+        is_constant: bool,
+    ) -> Result<Value, WalkerError> {
+        // Maybe other expressions could also be l-values, but these are fine for now.
+        match lvalue {
+            Expression::MemberAccess(_) => todo!("Structures not implemented yet."),
+            Expression::ArrayAccess(node) => {
+                let mut array = self.walk_expression(&node.array)?;
+                let index = self.walk_expression(&node.index)?;
+                let value = self.walk_expression(rvalue)?;
+
+                array
+                    .subscript_assign(index, value)
+                    .map_err(WalkerError::OperationError)
+            }
+            Expression::Identifier(ident) => {
+                let value = self.walk_expression(rvalue)?;
+                self.scope
+                    .set_var(ident, value.clone(), is_constant)
+                    .map_err(WalkerError::ScopeError)?;
+                return Ok(value);
+            }
+            _ => Err(WalkerError::NonLValueAssignment),
+        }
+    }
 }
 
 // TODO: Add source maps to the errors.
 #[derive(Error, Debug)]
 pub enum WalkerError {
-    #[error("Unknown identifier '{0}'")]
-    UnknownIdentifier(Identifier),
     #[error("Loop expressions can only take boolean values as conditions.")]
     WrongLoopConditionType,
     #[error("If and Elif expressions can only take boolean values as conditions.")]
     WrongIfConditionType,
+    #[error("Can only assign to identifiers and member or array access results.")]
+    NonLValueAssignment,
+    #[error(transparent)]
+    ScopeError(ScopeError),
     #[error(transparent)]
     OperationError(OperationError),
     // These are used for loop control flow and are only errors

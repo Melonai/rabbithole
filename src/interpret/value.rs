@@ -2,7 +2,7 @@ use crate::parse::ast::nodes::FnNode;
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 use thiserror::Error;
 
-type Ref<T> = RefCell<Rc<T>>;
+type ReferenceOnCopy<T> = Rc<RefCell<T>>;
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -10,8 +10,8 @@ pub enum Value {
     Float(f64),
     Int(i64),
     Bool(bool),
-    Array(Vec<Value>),
-    Fn(Ref<FnNode>),
+    Array(ReferenceOnCopy<Vec<Value>>),
+    Fn(ReferenceOnCopy<FnNode>),
     Void,
 }
 
@@ -173,17 +173,45 @@ impl Value {
 
         match self {
             Value::Array(a) => {
-                if index < 0 || index as usize >= a.len() {
+                let array = a.borrow();
+                if index < 0 || index as usize >= array.len() {
                     Err(OperationError::ArrayIndexOutOfRange {
                         index,
-                        length: a.len(),
+                        length: array.len(),
                     })
                 } else {
-                    Ok(a[index as usize].clone())
+                    Ok(array[index as usize].clone())
                 }
             }
             // Maybe allow string subscripts?
-            x => Err(OperationError::ArrayType(x)),
+            x => Err(OperationError::ArrayType(x.clone())),
+        }
+    }
+
+    pub fn subscript_assign(
+        &mut self,
+        index: Value,
+        value: Value,
+    ) -> Result<Value, OperationError> {
+        let index = match index {
+            Value::Int(i) => i,
+            i => return Err(OperationError::ArrayIndexType(i)),
+        };
+
+        match self {
+            Value::Array(a) => {
+                let mut array = a.borrow_mut();
+                if index < 0 || index as usize >= array.len() {
+                    Err(OperationError::ArrayIndexOutOfRange {
+                        index,
+                        length: array.len(),
+                    })
+                } else {
+                    array[index as usize] = value;
+                    Ok(array[index as usize].clone())
+                }
+            }
+            x => Err(OperationError::ArrayType(x.clone())),
         }
     }
 }
@@ -213,7 +241,8 @@ impl Display for Value {
                 write!(
                     f,
                     "[{}]",
-                    a.iter()
+                    a.borrow()
+                        .iter()
                         .map(|v| format!("{}", v))
                         .collect::<Vec<_>>()
                         .join(", ")
