@@ -1,0 +1,85 @@
+FIELD_WIDTH = 15;
+FIELD_HEIGHT = 15;
+
+empty_row := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+field = [
+    empty_row, empty_row, empty_row,
+    empty_row, empty_row, empty_row,
+    empty_row, empty_row, empty_row,
+    empty_row, empty_row, empty_row,
+    empty_row, empty_row, empty_row
+];
+
+# Place a glider on the field.
+field[1][2] = 1;
+field[2][3] = 1;
+field[3][1] = 1;
+field[3][2] = 1;
+field[3][3] = 1;
+
+loop {
+    new_field = [
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row
+    ];
+
+    # Compute new field.
+    y = 0;
+    loop if y < FIELD_HEIGHT {
+        x = 0;
+        loop if x < FIELD_WIDTH {
+            
+            top := if y == 0 { 0 } else { field[y - 1][x] };
+            top_left := if x == 0 || y == 0 { 0 } else { field[y - 1][x - 1] };
+            top_right := if x == FIELD_WIDTH - 1 || y == 0 { 0 } else { field[y - 1][x + 1] };
+
+            bottom := if y == FIELD_HEIGHT - 1 { 0 } else { field[y + 1][x] };
+            bottom_left := if x == 0 || y == FIELD_HEIGHT - 1 { 0 } else { field[y + 1][x - 1] };
+            bottom_right := if x == FIELD_WIDTH - 1 || y == FIELD_HEIGHT - 1 { 0 } else { field[y + 1][x + 1] };
+
+            left := if x == 0 { 0 } else { field[y][x - 1] };
+            right := if x == FIELD_WIDTH - 1 { 0 } else { field[y][x + 1] };
+
+            neighbors := top + top_left + top_right + bottom + bottom_left + bottom_right + left + right;
+
+            if field[y][x] == 0 {
+                if neighbors == 3 {
+                    new_field[y][x] = 1;
+                };
+            } else {
+                if neighbors == 2 || neighbors == 3 {
+                    new_field[y][x] = 1;
+                };
+            };
+
+            x = x + 1;
+        };
+        y = y + 1;
+    };
+
+    # Print field.
+    y = 0;
+    loop if y < FIELD_HEIGHT {
+        row = "";
+
+        x = 0;
+        loop if x < FIELD_WIDTH {
+            if field[y][x] == 1 {
+                row = row + "#";
+            } else {
+                row = row + ".";
+            };
+            x = x + 1;
+        };
+        print row;
+        y = y + 1;
+    };
+
+    print "";
+
+    field = new_field;
+};
