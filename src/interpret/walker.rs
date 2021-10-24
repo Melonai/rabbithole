@@ -69,6 +69,25 @@ impl Walker {
                     _ => {}
                 }
 
+                // Short-circuting operators
+                if let BinOp::And | BinOp::Or = op {
+                    let left_value = self.walk_expression(left)?;
+                    let is_left_true = match left_value {
+                        Value::Bool(bool) => bool,
+                        _ => return Err(WalkerError::WrongAndOrType),
+                    };
+
+                    if let BinOp::And = op {
+                        if !is_left_true {
+                            return Ok(Value::Bool(false));
+                        }
+                    } else if is_left_true {
+                        return Ok(Value::Bool(true));
+                    }
+
+                    return self.walk_expression(right);
+                }
+
                 let left = self.walk_expression(left)?;
                 let right = self.walk_expression(right)?;
 
@@ -78,13 +97,14 @@ impl Walker {
                     BinOp::Minus => left.sub(right),
                     BinOp::Star => left.mul(right),
                     BinOp::Slash => left.div(right),
+                    BinOp::Dot => todo!("Structures not implemented yet."),
                     BinOp::Eq => left.eq(right),
                     BinOp::Neq => left.neq(right),
                     BinOp::Gt => left.gt(right),
                     BinOp::Gte => left.gte(right),
                     BinOp::Lt => right.gt(left),
                     BinOp::Lte => right.gte(left),
-                    BinOp::Dot => todo!("Structures not implemented yet."),
+
                     _ => unreachable!(),
                 }
                 .map_err(WalkerError::OperationError)
@@ -245,6 +265,8 @@ pub enum WalkerError {
     WrongLoopConditionType,
     #[error("If and Elif expressions can only take boolean values as conditions.")]
     WrongIfConditionType,
+    #[error("&& and || expressions can only take boolean values as their operands.")]
+    WrongAndOrType,
     #[error("Can only assign to identifiers and member or array access results.")]
     NonLValueAssignment,
     #[error(transparent)]

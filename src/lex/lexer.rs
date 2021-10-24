@@ -79,6 +79,20 @@ impl Iterator for Lexer<'_> {
                         OpGt
                     }
                 }
+                '&' => {
+                    if self.advance_if('&') {
+                        OpAnd
+                    } else {
+                        Unknown('&')
+                    }
+                }
+                '|' => {
+                    if self.advance_if('|') {
+                        OpOr
+                    } else {
+                        Unknown('|')
+                    }
+                }
                 '(' => GroupOpen,
                 ')' => GroupClose,
                 '{' => BlockOpen,

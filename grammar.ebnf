@@ -21,6 +21,8 @@ Expression = AssignmentExpression;
 
 (* NOTE: Only allow IDENTIFIERs and their fields as the LValue for now. *)
 AssignmentExpression = IDENTIFIER {"." IDENTIFIER} ("=" | ":=") AssignmentExpression | EqualityExpression;
+OrExpression = AndExpression { "||" AndExpression };
+AndExpression = EqualityExpression { "&&" EqualityExpression };
 EqualityExpression = ComparisonExpression { ("==" | "!=") ComparisonExpression };
 ComparisonExpression = TermExpression { ("<" | "<=" | ">" | ">=") TermExpression };
 TermExpression = FactorExpression { ("+" | "-") FactorExpression };

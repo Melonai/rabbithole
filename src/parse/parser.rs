@@ -87,7 +87,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn assignment_expression(&mut self) -> Result<Expression> {
         // Parse any expressions as l-values for now.
-        let left = self.equality_expression()?;
+        let left = self.or_expression()?;
 
         if let Some(op) = consume_if!(self, Assign | ConstAssign) {
             let right = self.assignment_expression()?;
@@ -100,6 +100,38 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         } else {
             Ok(left)
         }
+    }
+
+    fn or_expression(&mut self) -> Result<Expression> {
+        let mut left = self.and_expression()?;
+
+        while let Some(op) = consume_if!(self, OpAnd) {
+            let right = self.and_expression()?;
+
+            left = Expression::Binary {
+                left: Box::new(left),
+                op: BinaryOperator::from_token(op),
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    fn and_expression(&mut self) -> Result<Expression> {
+        let mut left = self.equality_expression()?;
+
+        while let Some(op) = consume_if!(self, OpOr) {
+            let right = self.equality_expression()?;
+
+            left = Expression::Binary {
+                left: Box::new(left),
+                op: BinaryOperator::from_token(op),
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
     }
 
     fn equality_expression(&mut self) -> Result<Expression> {

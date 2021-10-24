@@ -25,6 +25,9 @@ pub enum TokenVariant {
     OpGt,
     OpLte,
     OpGte,
+    // Short-circuting boolean operators
+    OpAnd,
+    OpOr,
 
     // Statement symbols
     Dot,
