@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::parse::ast::{
     expression::Expression,
-    nodes::{BinaryOperator as BinOp, BlockNode, Identifier, Literal, UnaryOperator as UnOp},
+    nodes::{BinaryOperator as BinOp, BlockNode, Identifier, SimpleLiteral, UnaryOperator as UnOp},
     statement::Statement,
     Program,
 };
@@ -79,7 +79,7 @@ impl Walker {
                 let right = self.walk_expression(right)?;
 
                 // Other operators
-                let new_value = match op {
+                match op {
                     BinOp::Plus => left.add(right),
                     BinOp::Minus => left.sub(right),
                     BinOp::Star => left.mul(right),
@@ -94,37 +94,44 @@ impl Walker {
                     BinOp::Dot => todo!(),
                     _ => unreachable!(),
                 }
-                .map_err(WalkerError::OperationError)?;
-
-                Ok(new_value)
+                .map_err(WalkerError::OperationError)
             }
             Expression::Unary { op, right } => {
                 let value = self.walk_expression(right)?;
 
-                let new_value = match op {
+                match op {
                     UnOp::Minus => value.neg(),
                     UnOp::Not => value.not(),
                 }
-                .map_err(WalkerError::OperationError)?;
-
-                Ok(new_value)
+                .map_err(WalkerError::OperationError)
             }
             Expression::Call(_) => todo!("Calls not implemented yet."),
-            Expression::ArrayAccess(_) => todo!("Arrays not implemented yet."),
+            Expression::ArrayAccess(node) => {
+                let array = self.walk_expression(&node.array)?;
+                let index = self.walk_expression(&node.index)?;
+                array.subscript(index).map_err(WalkerError::OperationError)
+            }
             Expression::MemberAccess(_) => todo!("Structures not implemented yet."),
             Expression::Group(node) => self.walk_expression(node),
-            Expression::Literal(token) => {
+            Expression::ArrayLiteral(node) => {
+                let mut elements = Vec::new();
+                for expression in &node.elements {
+                    elements.push(self.walk_expression(expression)?);
+                }
+                Ok(Value::Array(elements))
+            }
+            Expression::SimpleLiteral(token) => {
                 let value = match token {
-                    Literal::Int(int) => Value::Int(*int as i64),
-                    Literal::Float(float) => Value::Float(*float as f64),
-                    Literal::Str(string) => Value::Str(string.clone()),
-                    Literal::Bool(bool) => Value::Bool(*bool),
+                    SimpleLiteral::Int(int) => Value::Int(*int as i64),
+                    SimpleLiteral::Float(float) => Value::Float(*float as f64),
+                    SimpleLiteral::Str(string) => Value::Str(string.clone()),
+                    SimpleLiteral::Bool(bool) => Value::Bool(*bool),
                 };
 
                 Ok(value)
             }
             Expression::Block(block) => self.walk_block(block.as_ref()),
-            Expression::Fn(fn_node) => {
+            Expression::FnLiteral(fn_node) => {
                 let node = fn_node.as_ref().clone();
                 Ok(Value::Fn(RefCell::new(Rc::new(node))))
             }

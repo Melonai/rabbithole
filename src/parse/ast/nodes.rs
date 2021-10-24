@@ -57,14 +57,14 @@ impl UnaryOperator {
 }
 
 #[derive(Debug, Clone)]
-pub enum Literal {
+pub enum SimpleLiteral {
     Int(u32),
     Float(f32),
     Str(String),
     Bool(bool),
 }
 
-impl Literal {
+impl SimpleLiteral {
     pub fn from_token(token: Token) -> Self {
         match token.variant {
             Int(int) => Self::Int(int),
@@ -109,6 +109,11 @@ pub struct MemberAccessNode {
 pub struct FnNode {
     pub header: FnHeader,
     pub body: BlockNode,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArrayNode {
+    pub elements: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]

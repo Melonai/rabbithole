@@ -30,8 +30,9 @@ PostfixExpression = UnitExpression { ( "(" [FnCallArguments] ")" | "[" Expressio
                 
 (* Unaffected Expressions *)
 
-UnitExpression = FLOAT | INT | STR | TRUE | FALSE | GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
+UnitExpression = FLOAT | INT | STR | TRUE | FALSE | ArrayExpression | GroupExpression | BlockExpression | FnExpression | TypeExpression | FormExpression | IfExpression;
 
+ArrayExpression = "[" [ Expression ] { "," Expression } "]" ;
 GroupExpression = "(" Expression ")";
 BlockExpression = Block;
 FnExpression = "fn" FnHeader Block;

@@ -1,8 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
 use super::nodes::{
-    ArrayAccessNode, BinaryOperator, BlockNode, CallNode, FnNode, Identifier, IfNode, Literal,
-    LoopNode, MemberAccessNode, UnaryOperator,
+    ArrayAccessNode, ArrayNode, BinaryOperator, BlockNode, CallNode, FnNode, Identifier, IfNode,
+    LoopNode, MemberAccessNode, SimpleLiteral, UnaryOperator,
 };
 
 #[derive(Debug, Clone)]
@@ -21,10 +21,11 @@ pub enum Expression {
     MemberAccess(Box<MemberAccessNode>),
     Group(Box<Expression>),
     Block(Box<BlockNode>),
-    Fn(Box<FnNode>),
     If(Box<IfNode>),
     Loop(Box<LoopNode>),
-    Literal(Literal),
+    FnLiteral(Box<FnNode>),
+    ArrayLiteral(ArrayNode),
+    SimpleLiteral(SimpleLiteral),
     Identifier(Identifier),
 }
 
@@ -81,7 +82,7 @@ impl Expression {
             Expression::Block(block) => {
                 Self::block_fmt(f, block, depth + 1)?;
             }
-            Expression::Fn(node) => {
+            Expression::FnLiteral(node) => {
                 write!(f, "{}Fn (", pad)?;
 
                 // Write self receiver
@@ -107,7 +108,14 @@ impl Expression {
                 )?;
                 Self::block_fmt(f, &node.body, depth + 1)?;
             }
-            Expression::Literal(literal) => {
+            Expression::ArrayLiteral(node) => {
+                writeln!(f, "{}Array Literal:", pad)?;
+                for (i, c) in node.elements.iter().enumerate() {
+                    writeln!(f, "{}- Element {}:", pad, i)?;
+                    c.nested_fmt(f, depth + 1)?;
+                }
+            }
+            Expression::SimpleLiteral(literal) => {
                 writeln!(f, "{}Literal: {:?}", pad, literal)?;
             }
             Expression::Identifier(identifier) => {

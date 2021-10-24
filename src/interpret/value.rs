@@ -10,6 +10,7 @@ pub enum Value {
     Float(f64),
     Int(i64),
     Bool(bool),
+    Array(Vec<Value>),
     Fn(Ref<FnNode>),
     Void,
 }
@@ -163,6 +164,28 @@ impl Value {
             _ => Err(OperationError::NotType(self)),
         }
     }
+
+    pub fn subscript(self, index: Value) -> Result<Value, OperationError> {
+        let index = match index {
+            Value::Int(i) => i,
+            i => return Err(OperationError::ArrayIndexType(i)),
+        };
+
+        match self {
+            Value::Array(a) => {
+                if index < 0 || index as usize >= a.len() {
+                    Err(OperationError::ArrayIndexOutOfRange {
+                        index,
+                        length: a.len(),
+                    })
+                } else {
+                    Ok(a[index as usize].clone())
+                }
+            }
+            // Maybe allow string subscripts?
+            x => Err(OperationError::ArrayType(x)),
+        }
+    }
 }
 
 impl Value {
@@ -172,6 +195,7 @@ impl Value {
             Value::Float(_) => "Float",
             Value::Int(_) => "Int",
             Value::Bool(_) => "Bool",
+            Value::Array(_) => "Array",
             Value::Fn(_) => "Fn",
             Value::Void => "Void",
         }
@@ -185,6 +209,16 @@ impl Display for Value {
             Value::Float(v) => write!(f, "{}", v),
             Value::Int(v) => write!(f, "{}", v),
             Value::Bool(v) => write!(f, "{}", v),
+            Value::Array(a) => {
+                write!(
+                    f,
+                    "[{}]",
+                    a.iter()
+                        .map(|v| format!("{}", v))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
             Value::Fn(v) => write!(f, "<fn {:?}>", v.as_ptr()),
             Value::Void => write!(f, "<void>"),
         }
@@ -207,4 +241,10 @@ pub enum OperationError {
     NegType(Value),
     #[error("Can't flip value '{0}' of type '{}'.", .0.type_name())]
     NotType(Value),
+    #[error("Can't use value '{0}' of type '{}' as a subsript index.", .0.type_name())]
+    ArrayIndexType(Value),
+    #[error("Can't subscript value '{0}' of type '{}'.", .0.type_name())]
+    ArrayType(Value),
+    #[error("Array index '{index}' out of range for array of length '{length}'.")]
+    ArrayIndexOutOfRange { index: i64, length: usize },
 }

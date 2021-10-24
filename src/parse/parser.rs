@@ -1,11 +1,11 @@
 use super::ast::expression::Expression;
-use super::ast::nodes::{LoopNode, UnaryOperator};
+use super::ast::nodes::{ArrayNode, LoopNode, UnaryOperator};
 use super::ast::statement::Statement;
 use super::ast::Program;
 use crate::lex::token::TokenVariant::*;
 use crate::parse::ast::nodes::{
     ArrayAccessNode, BinaryOperator, BlockNode, CallNode, ConditionalBlock, FnHeader, FnNode,
-    IfNode, Literal, MemberAccessNode, TypedIdentifier,
+    IfNode, MemberAccessNode, SimpleLiteral, TypedIdentifier,
 };
 use crate::{check, consume, consume_if, inner, lex::token::Token};
 use anyhow::{anyhow, Result};
@@ -227,7 +227,9 @@ impl<T: Iterator<Item = Token>> Parser<T> {
             match token.variant {
                 Int(_) | Float(_) | Str(_) | KeywordTrue | KeywordFalse => {
                     let literal = self.tokens.next().unwrap();
-                    Ok(Expression::Literal(Literal::from_token(literal)))
+                    Ok(Expression::SimpleLiteral(SimpleLiteral::from_token(
+                        literal,
+                    )))
                 }
                 Ident(_) => Ok(Expression::Identifier(inner!(
                     self.tokens.next().unwrap(),
@@ -235,7 +237,8 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 ))),
                 GroupOpen => Ok(Expression::Group(Box::new(self.group()?))),
                 BlockOpen => Ok(Expression::Block(Box::new(self.generic_block()?))),
-                KeywordFn => Ok(Expression::Fn(Box::new(self.function()?))),
+                ArrayOpen => Ok(Expression::ArrayLiteral(self.array()?)),
+                KeywordFn => Ok(Expression::FnLiteral(Box::new(self.function()?))),
                 KeywordIf => Ok(Expression::If(Box::new(self.conditional()?))),
                 KeywordLoop => Ok(Expression::Loop(Box::new(self.repeating()?))),
                 _ => Err(anyhow!("Unexpected token: {:?}", token.variant)),
@@ -250,6 +253,22 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         let expression = self.expression()?;
         consume!(self, GroupClose)?;
         Ok(expression)
+    }
+
+    fn array(&mut self) -> Result<ArrayNode> {
+        consume!(self, ArrayOpen)?;
+        let mut elements = Vec::new();
+
+        loop {
+            elements.push(self.expression()?);
+
+            if consume_if!(self, Comma).is_none() {
+                break;
+            }
+        }
+
+        consume!(self, ArrayClose)?;
+        Ok(ArrayNode { elements })
     }
 
     fn function(&mut self) -> Result<FnNode> {
