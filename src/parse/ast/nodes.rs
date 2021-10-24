@@ -88,6 +88,24 @@ pub struct TypedIdentifier {
 }
 
 #[derive(Debug, Clone)]
+pub struct CallNode {
+    pub called: Expression,
+    pub arguments: Vec<Expression>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArrayAccessNode {
+    pub array: Expression,
+    pub index: Expression,
+}
+
+#[derive(Debug, Clone)]
+pub struct MemberAccessNode {
+    pub object: Expression,
+    pub member_name: Identifier,
+}
+
+#[derive(Debug, Clone)]
 pub struct FnNode {
     pub header: FnHeader,
     pub body: BlockNode,

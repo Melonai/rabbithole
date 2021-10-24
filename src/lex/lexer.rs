@@ -83,6 +83,8 @@ impl Iterator for Lexer<'_> {
                 ')' => GroupClose,
                 '{' => BlockOpen,
                 '}' => BlockClose,
+                '[' => ArrayOpen,
+                ']' => ArrayClose,
                 '.' => Dot,
                 ',' => Comma,
                 ':' => {

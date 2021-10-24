@@ -1,7 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
 use super::nodes::{
-    BinaryOperator, BlockNode, FnNode, Identifier, IfNode, Literal, LoopNode, UnaryOperator,
+    ArrayAccessNode, BinaryOperator, BlockNode, CallNode, FnNode, Identifier, IfNode, Literal,
+    LoopNode, MemberAccessNode, UnaryOperator,
 };
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,9 @@ pub enum Expression {
         op: UnaryOperator,
         right: Box<Expression>,
     },
+    Call(Box<CallNode>),
+    ArrayAccess(Box<ArrayAccessNode>),
+    MemberAccess(Box<MemberAccessNode>),
     Group(Box<Expression>),
     Block(Box<BlockNode>),
     Fn(Box<FnNode>),
@@ -47,6 +51,28 @@ impl Expression {
                 writeln!(f, "{}- Operator: {:?}", pad, op)?;
                 writeln!(f, "{}- Right:", pad)?;
                 right.nested_fmt(f, depth + 1)?;
+            }
+            Expression::Call(node) => {
+                writeln!(f, "{}Function Call:", pad)?;
+                writeln!(f, "{}- Called:", pad)?;
+                node.called.nested_fmt(f, depth + 1)?;
+                for (i, e) in node.arguments.iter().enumerate() {
+                    writeln!(f, "{}- Argument {}:", pad, i)?;
+                    e.nested_fmt(f, depth + 1)?;
+                }
+            }
+            Expression::ArrayAccess(node) => {
+                writeln!(f, "{}Array Access:", pad)?;
+                writeln!(f, "{}- Array:", pad)?;
+                node.array.nested_fmt(f, depth + 1)?;
+                writeln!(f, "{}- Index:", pad)?;
+                node.index.nested_fmt(f, depth + 1)?;
+            }
+            Expression::MemberAccess(node) => {
+                writeln!(f, "{}Member Access:", pad)?;
+                writeln!(f, "{}- Object:", pad)?;
+                node.object.nested_fmt(f, depth + 1)?;
+                writeln!(f, "{}- Member Name: {}", pad, node.member_name)?;
             }
             Expression::Group(node) => {
                 writeln!(f, "{}Group:", pad)?;

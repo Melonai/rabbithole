@@ -40,6 +40,8 @@ pub enum TokenVariant {
     GroupClose,
     BlockOpen,
     BlockClose,
+    ArrayOpen,
+    ArrayClose,
 
     // Literals
     Int(u32),

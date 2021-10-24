@@ -25,7 +25,8 @@ EqualityExpression = ComparisonExpression { ("==" | "!=") ComparisonExpression }
 ComparisonExpression = TermExpression { ("<" | "<=" | ">" | ">=") TermExpression };
 TermExpression = FactorExpression { ("+" | "-") FactorExpression };
 FactorExpression = UnaryExpression { ("*" | "/") UnaryExpression };
-UnaryExpression = ( "-" | "!" ) UnaryExpression | UnitExpression ;
+UnaryExpression = ( "-" | "!" ) UnaryExpression | PostfixExpression ;
+PostfixExpression = UnitExpression { ( "(" [FnCallArguments] ")" | "[" Expression "]" | "." IDENTIFIER ) };
                 
 (* Unaffected Expressions *)
 
@@ -44,6 +45,8 @@ LoopExpression = "loop" ["if" Expression] Block;
 
 FnHeader = (FnParameters) ["->" Type];
 FnParameters = ("self" | FnParameter) { "," FnParameter};
+
+FnCallArguments = Expression { "," Expression };
 
 (* Utils *)
 

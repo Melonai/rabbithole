@@ -1,24 +1,14 @@
 use super::ast::expression::Expression;
-use super::ast::nodes::LoopNode;
-use super::ast::nodes::UnaryOperator;
+use super::ast::nodes::{LoopNode, UnaryOperator};
 use super::ast::statement::Statement;
 use super::ast::Program;
-use crate::check;
-use crate::consume;
-use crate::consume_if;
-use crate::inner;
-use crate::lex::token::Token;
 use crate::lex::token::TokenVariant::*;
-use crate::parse::ast::nodes::BinaryOperator;
-use crate::parse::ast::nodes::BlockNode;
-use crate::parse::ast::nodes::ConditionalBlock;
-use crate::parse::ast::nodes::FnHeader;
-use crate::parse::ast::nodes::FnNode;
-use crate::parse::ast::nodes::IfNode;
-use crate::parse::ast::nodes::Literal;
-use crate::parse::ast::nodes::TypedIdentifier;
-use anyhow::anyhow;
-use anyhow::Result;
+use crate::parse::ast::nodes::{
+    ArrayAccessNode, BinaryOperator, BlockNode, CallNode, ConditionalBlock, FnHeader, FnNode,
+    IfNode, Literal, MemberAccessNode, TypedIdentifier,
+};
+use crate::{check, consume, consume_if, inner, lex::token::Token};
+use anyhow::{anyhow, Result};
 use std::iter::Peekable;
 
 pub struct Parser<T: Iterator> {
@@ -183,10 +173,53 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 right: Box::new(self.unary_expression()?),
             }
         } else {
-            self.unit_expression()?
+            self.postfix_expression()?
         };
 
         Ok(expression)
+    }
+
+    fn postfix_expression(&mut self) -> Result<Expression> {
+        let mut left = self.unit_expression()?;
+
+        while let Some(token) = consume_if!(self, GroupOpen | ArrayOpen | Dot) {
+            match token.variant {
+                GroupOpen => loop {
+                    let mut arguments = Vec::new();
+
+                    loop {
+                        arguments.push(self.expression()?);
+
+                        if consume_if!(self, Comma).is_none() {
+                            consume!(self, GroupClose)?;
+                            break;
+                        }
+                    }
+
+                    left = Expression::Call(Box::new(CallNode {
+                        called: left,
+                        arguments,
+                    }))
+                },
+                ArrayOpen => {
+                    let index = self.expression()?;
+                    consume!(self, ArrayClose)?;
+
+                    left = Expression::ArrayAccess(Box::new(ArrayAccessNode { array: left, index }))
+                }
+                Dot => {
+                    let member_name = inner!(consume!(self, Ident(_))?, Ident);
+
+                    left = Expression::MemberAccess(Box::new(MemberAccessNode {
+                        object: left,
+                        member_name,
+                    }))
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(left)
     }
 
     fn unit_expression(&mut self) -> Result<Expression> {

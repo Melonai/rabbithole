@@ -109,6 +109,9 @@ impl Walker {
 
                 Ok(new_value)
             }
+            Expression::Call(_) => todo!("Calls not implemented yet."),
+            Expression::ArrayAccess(_) => todo!("Arrays not implemented yet."),
+            Expression::MemberAccess(_) => todo!("Structures not implemented yet."),
             Expression::Group(node) => self.walk_expression(node),
             Expression::Literal(token) => {
                 let value = match token {
