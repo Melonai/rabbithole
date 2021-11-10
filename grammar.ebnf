@@ -20,7 +20,7 @@ Expression = AssignmentExpression;
 (* Expressions affected by precedence*)
 
 (* NOTE: Only allow IDENTIFIERs and their fields as the LValue for now. *)
-AssignmentExpression = IDENTIFIER {"." IDENTIFIER} ("=" | ":=") AssignmentExpression | EqualityExpression;
+AssignmentExpression = IDENTIFIER {"." IDENTIFIER} ("=" | ":=") AssignmentExpression | OrExpression;
 OrExpression = AndExpression { "||" AndExpression };
 AndExpression = EqualityExpression { "&&" EqualityExpression };
 EqualityExpression = ComparisonExpression { ("==" | "!=") ComparisonExpression };
