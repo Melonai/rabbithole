@@ -1,10 +1,11 @@
-use std::{iter::Peekable, str::Chars};
+use std::{collections::VecDeque, iter::Peekable, str::Chars};
 
 use super::token::{Location, Token, TokenVariant};
 
 pub struct Lexer<'source> {
     location: Location,
     chars: Peekable<Chars<'source>>,
+    preempted: VecDeque<Token>,
     done: bool,
 }
 
@@ -16,6 +17,11 @@ impl Iterator for Lexer<'_> {
 
         if self.done {
             return None;
+        }
+
+        // Return pre-empted tokens if there are some.
+        if !self.preempted.is_empty() {
+            return Some(self.preempted.pop_front().unwrap());
         }
 
         self.skip_non_code();
@@ -124,6 +130,7 @@ impl<'s> Lexer<'s> {
         Lexer {
             location: Location { col: 0, row: 0 },
             chars: source.chars().peekable(),
+            preempted: VecDeque::new(),
             done: false,
         }
     }
@@ -223,23 +230,82 @@ impl<'s> Lexer<'s> {
     }
 
     fn str(&mut self) -> Token {
-        let location = self.location;
+        let location_start = self.location;
 
         // Remove first "
         self.advance().unwrap();
 
-        let mut buffer = String::new();
+        let mut location_str = location_start;
+        let mut str_buffer = String::new();
         loop {
+            // TODO: Better lexer errors?
             let c = self.advance().expect("Expected Str literal to be closed");
-            if c == '"' {
+
+            if c == '{' {
+                // If we have blocks {} nested in the embed, count their nested-ness
+                // so that we don't close before we're done.
+                let mut nest_level = 0;
+
+                // Finish the last string part
+                self.preempted.push_back(Token {
+                    location: location_str,
+                    variant: TokenVariant::Str(str_buffer),
+                });
+                str_buffer = String::new();
+
+                // Build embed
+                let location_embed = self.location;
+                let mut embed_buffer = String::new();
+                loop {
+                    // TOOD: Same as above
+                    let c = self.advance().expect("Expected Str embed to be closed");
+                    if c == '{' {
+                        nest_level += 1;
+                    } else if c == '}' {
+                        if nest_level <= 0 {
+                            // Remove last '}' of embed
+                            self.advance().unwrap();
+                            location_str = self.location;
+                            break;
+                        } else {
+                            nest_level -= 1;
+                        }
+                    }
+                    embed_buffer.push(c);
+                }
+
+                // Finish embed
+                self.preempted.push_back(Token {
+                    location: location_embed,
+                    variant: TokenVariant::StrEmbed(embed_buffer),
+                });
+            } else if c == '"' {
                 break;
+            } else {
+                str_buffer.push(c);
             }
-            buffer.push(c);
         }
 
+        if !str_buffer.is_empty() {
+            self.preempted.push_back(Token {
+                location: location_str,
+                variant: TokenVariant::Str(str_buffer),
+            });
+        }
+
+        // Add StrCLose token
+        self.preempted.push_back(Token {
+            // Small hack: Move location back one token to the actual last '"'.
+            location: Location {
+                col: self.location.col - 1,
+                row: self.location.row,
+            },
+            variant: TokenVariant::StrClose,
+        });
+
         Token {
-            location,
-            variant: TokenVariant::Str(buffer),
+            location: location_start,
+            variant: TokenVariant::StrOpen,
         }
     }
 }

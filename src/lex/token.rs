@@ -49,8 +49,17 @@ pub enum TokenVariant {
     // Literals
     Int(u32),
     Float(f32),
+    
+    // String Literal Tokens
     Str(String),
-
+    // StrOpen and StrClose are necessary for string embeds.
+    // A normal string looks like [StrOpen Str("Hello!") StrClose] in a token stream while a
+    // string with an embed would look something like [StrOpen Str("Hello") StrEmbed("world") Str("!") S StrClose].
+    StrOpen,
+    StrClose,
+    // The string embed has to be lexed by a *seperate* lexer.
+    StrEmbed(String),
+    
     Ident(String),
 
     // Keywords
