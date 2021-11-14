@@ -1,15 +1,19 @@
 FIELD_WIDTH = 15;
 FIELD_HEIGHT = 15;
 
-empty_row := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+create_empty_field := fn {
+    empty_row := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-field = [
-    empty_row, empty_row, empty_row,
-    empty_row, empty_row, empty_row,
-    empty_row, empty_row, empty_row,
-    empty_row, empty_row, empty_row,
-    empty_row, empty_row, empty_row
-];
+    [
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row,
+        empty_row, empty_row, empty_row
+    ]
+};
+
+field = create_empty_field();
 
 # Place a glider on the field.
 field[1][2] = 1;
@@ -19,13 +23,7 @@ field[3][2] = 1;
 field[3][3] = 1;
 
 loop {
-    new_field = [
-        empty_row, empty_row, empty_row,
-        empty_row, empty_row, empty_row,
-        empty_row, empty_row, empty_row,
-        empty_row, empty_row, empty_row,
-        empty_row, empty_row, empty_row
-    ];
+    new_field = create_empty_field();
 
     # Compute new field.
     y = 0;
