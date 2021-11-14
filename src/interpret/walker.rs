@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::parse::ast::{
     expression::Expression,
-    nodes::{BinaryOperator as BinOp, BlockNode, SimpleLiteral, UnaryOperator as UnOp},
+    nodes::{BinaryOperator as BinOp, BlockNode, SimpleLiteral, StrPart, UnaryOperator as UnOp},
     statement::Statement,
     Program,
 };
@@ -140,13 +140,26 @@ impl Walker {
                 let value = match token {
                     SimpleLiteral::Int(int) => Value::Int(*int as i64),
                     SimpleLiteral::Float(float) => Value::Float(*float as f64),
-                    SimpleLiteral::Str(string) => Value::Str(string.clone()),
                     SimpleLiteral::Bool(bool) => Value::Bool(*bool),
                 };
 
                 Ok(value)
             }
             Expression::Block(block) => self.walk_block(block.as_ref()),
+            Expression::StrLiteral(node) => {
+                let mut buffer = String::new();
+
+                for part in &node.parts {
+                    match part {
+                        StrPart::Literal(literal) => buffer.push_str(literal),
+                        StrPart::Embed(embed) => {
+                            buffer.push_str(&self.walk_expression(embed)?.to_string())
+                        }
+                    };
+                }
+
+                Ok(Value::Str(buffer))
+            }
             Expression::FnLiteral(fn_node) => {
                 let node = fn_node.as_ref().clone();
                 Ok(Value::Fn(Rc::new(RefCell::new(node))))

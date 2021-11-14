@@ -1,8 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::parse::ast::nodes::StrPart;
+
 use super::nodes::{
     ArrayAccessNode, ArrayNode, BinaryOperator, BlockNode, CallNode, FnNode, Identifier, IfNode,
-    LoopNode, MemberAccessNode, SimpleLiteral, UnaryOperator,
+    LoopNode, MemberAccessNode, SimpleLiteral, StrNode, UnaryOperator,
 };
 
 #[derive(Debug, Clone)]
@@ -23,6 +25,7 @@ pub enum Expression {
     Block(Box<BlockNode>),
     If(Box<IfNode>),
     Loop(Box<LoopNode>),
+    StrLiteral(Box<StrNode>),
     FnLiteral(Box<FnNode>),
     ArrayLiteral(ArrayNode),
     SimpleLiteral(SimpleLiteral),
@@ -81,6 +84,18 @@ impl Expression {
             }
             Expression::Block(block) => {
                 Self::block_fmt(f, block, depth + 1)?;
+            }
+            Expression::StrLiteral(node) => {
+                writeln!(f, "{}Str:", pad)?;
+                for (i, statement) in node.parts.iter().enumerate() {
+                    writeln!(f, "{}- {}:", pad, i)?;
+                    match statement {
+                        StrPart::Literal(literal) => {
+                            writeln!(f, "{}{}", "  ".repeat(depth + 1), literal.clone())
+                        }
+                        StrPart::Embed(block) => block.nested_fmt(f, depth + 1),
+                    }?;
+                }
             }
             Expression::FnLiteral(node) => {
                 write!(f, "{}Fn (", pad)?;

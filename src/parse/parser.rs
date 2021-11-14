@@ -1,11 +1,12 @@
 use super::ast::expression::Expression;
-use super::ast::nodes::{ArrayNode, LoopNode, UnaryOperator};
+use super::ast::nodes::{ArrayNode, LoopNode, StrNode, UnaryOperator};
 use super::ast::statement::Statement;
 use super::ast::Program;
+use crate::lex::lexer::Lexer;
 use crate::lex::token::TokenVariant::*;
 use crate::parse::ast::nodes::{
     ArrayAccessNode, BinaryOperator, BlockNode, CallNode, ConditionalBlock, FnHeader, FnNode,
-    IfNode, MemberAccessNode, SimpleLiteral, TypedIdentifier,
+    IfNode, MemberAccessNode, SimpleLiteral, StrPart, TypedIdentifier,
 };
 use crate::{check, consume, consume_if, inner, lex::token::Token};
 use anyhow::{anyhow, Result};
@@ -267,6 +268,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                     self.tokens.next().unwrap(),
                     Ident
                 ))),
+                StrOpen => Ok(Expression::StrLiteral(Box::new(self.str()?))),
                 GroupOpen => Ok(Expression::Group(Box::new(self.group()?))),
                 BlockOpen => Ok(Expression::Block(Box::new(self.generic_block()?))),
                 ArrayOpen => Ok(Expression::ArrayLiteral(self.array()?)),
@@ -301,6 +303,34 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         consume!(self, ArrayClose)?;
         Ok(ArrayNode { elements })
+    }
+
+    fn str(&mut self) -> Result<StrNode> {
+        let mut parts = Vec::new();
+
+        consume!(self, StrOpen)?;
+
+        loop {
+            let token = self.tokens.next().expect("Unclosed str.");
+
+            let part = match token.variant {
+                Str(literal) => StrPart::Literal(literal),
+                StrEmbed(code) => {
+                    let embed_lexer = Lexer::new(&code);
+                    let mut embed_parser = Parser::new(embed_lexer);
+
+                    let node = embed_parser.expression()?;
+
+                    StrPart::Embed(node)
+                }
+                StrClose => break,
+                _ => unreachable!(),
+            };
+
+            parts.push(part);
+        }
+
+        Ok(StrNode { parts })
     }
 
     fn function(&mut self) -> Result<FnNode> {

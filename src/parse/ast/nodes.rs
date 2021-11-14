@@ -64,7 +64,6 @@ impl UnaryOperator {
 pub enum SimpleLiteral {
     Int(u32),
     Float(f32),
-    Str(String),
     Bool(bool),
 }
 
@@ -73,7 +72,6 @@ impl SimpleLiteral {
         match token.variant {
             Int(int) => Self::Int(int),
             Float(float) => Self::Float(float),
-            Str(string) => Self::Str(string),
             KeywordTrue => Self::Bool(true),
             KeywordFalse => Self::Bool(false),
             _ => panic!("Can't create literal from '{:?}'.", token.variant),
@@ -110,14 +108,20 @@ pub struct MemberAccessNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct FnNode {
-    pub header: FnHeader,
-    pub body: BlockNode,
+pub struct StrNode {
+    pub parts: Vec<StrPart>,
 }
 
 #[derive(Debug, Clone)]
-pub struct ArrayNode {
-    pub elements: Vec<Expression>,
+pub enum StrPart {
+    Literal(String),
+    Embed(Expression)
+}
+
+#[derive(Debug, Clone)]
+pub struct FnNode {
+    pub header: FnHeader,
+    pub body: BlockNode,
 }
 
 #[derive(Debug, Clone)]
@@ -127,6 +131,10 @@ pub struct FnHeader {
     pub return_type: Option<Identifier>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ArrayNode {
+    pub elements: Vec<Expression>,
+}
 #[derive(Debug, Clone)]
 pub struct IfNode {
     pub conditionals: Vec<ConditionalBlock>,

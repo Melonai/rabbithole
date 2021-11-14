@@ -247,15 +247,19 @@ impl<'s> Lexer<'s> {
                 let mut nest_level = 0;
 
                 // Finish the last string part
-                self.preempted.push_back(Token {
-                    location: location_str,
-                    variant: TokenVariant::Str(str_buffer),
-                });
+                if !str_buffer.is_empty() {
+                    self.preempted.push_back(Token {
+                        location: location_str,
+                        variant: TokenVariant::Str(str_buffer),
+                    });
+                }
                 str_buffer = String::new();
 
                 // Build embed
                 let location_embed = self.location;
                 let mut embed_buffer = String::new();
+                embed_buffer.push(c);
+
                 loop {
                     // TOOD: Same as above
                     let c = self.advance().expect("Expected Str embed to be closed");
@@ -263,8 +267,7 @@ impl<'s> Lexer<'s> {
                         nest_level += 1;
                     } else if c == '}' {
                         if nest_level <= 0 {
-                            // Remove last '}' of embed
-                            self.advance().unwrap();
+                            embed_buffer.push(c);
                             location_str = self.location;
                             break;
                         } else {
