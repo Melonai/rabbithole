@@ -261,10 +261,13 @@ impl Value {
         // Yes, we create a new walker for every function call,
         // it's *way* easier that way.
         let mut walker = Walker::new_with_scope(scope);
-        let result =
-            walker.walk_expression(&Expression::Block(Box::new(called.node.body.clone())))?;
+        let result = walker.walk_expression(&Expression::Block(Box::new(called.node.body.clone())));
 
-        Ok(result)
+        if let Err(WalkerError::Return(returned)) = result {
+            Ok(returned)
+        } else {
+            result
+        }
     }
 }
 

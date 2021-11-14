@@ -51,7 +51,11 @@ impl Walker {
                 println!("{}", result);
                 None
             }
-            Statement::Return(node) => Some(self.walk_expression(node)?),
+            // FIXME: Returns are always expected to have a return even though `return;` is valid.
+            Statement::Return(node) => {
+                // If there's a function running above us it will catch this error.
+                return Err(WalkerError::Return(self.walk_expression(node)?));
+            }
             Statement::Break(node) => {
                 let returned = if let Some(expression) = node {
                     Some(self.walk_expression(expression)?)
@@ -307,4 +311,7 @@ pub enum WalkerError {
     LoopContinue,
     #[error("Break statements are only valid inside loops.")]
     LoopBreak(Option<Value>),
+    // Same as with the loop control errors, but for functions.
+    #[error("Return statements are only valid inside functions.")]
+    Return(Value),
 }
