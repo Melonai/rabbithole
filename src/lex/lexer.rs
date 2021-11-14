@@ -9,6 +9,7 @@ pub struct Lexer<'source> {
     done: bool,
 }
 
+// TODO: Add lexer errors.
 impl Iterator for Lexer<'_> {
     type Item = Token;
 
@@ -242,10 +243,6 @@ impl<'s> Lexer<'s> {
             let c = self.advance().expect("Expected Str literal to be closed");
 
             if c == '{' {
-                // If we have blocks {} nested in the embed, count their nested-ness
-                // so that we don't close before we're done.
-                let mut nest_level = 0;
-
                 // Finish the last string part
                 if !str_buffer.is_empty() {
                     self.preempted.push_back(Token {
@@ -254,36 +251,12 @@ impl<'s> Lexer<'s> {
                     });
                 }
                 str_buffer = String::new();
-
-                // Build embed
-                let location_embed = self.location;
-                let mut embed_buffer = String::new();
-                embed_buffer.push(c);
-
-                loop {
-                    // TOOD: Same as above
-                    let c = self.advance().expect("Expected Str embed to be closed");
-                    if c == '{' {
-                        nest_level += 1;
-                    } else if c == '}' {
-                        if nest_level <= 0 {
-                            embed_buffer.push(c);
-                            location_str = self.location;
-                            break;
-                        } else {
-                            nest_level -= 1;
-                        }
-                    }
-                    embed_buffer.push(c);
-                }
-
-                // Finish embed
-                self.preempted.push_back(Token {
-                    location: location_embed,
-                    variant: TokenVariant::StrEmbed(embed_buffer),
-                });
+                self.str_embed();
+                location_str = self.location;
             } else if c == '"' {
                 break;
+            } else if c == '\\' {
+                str_buffer.push(self.str_escape_sequence());
             } else {
                 str_buffer.push(c);
             }
@@ -309,6 +282,51 @@ impl<'s> Lexer<'s> {
         Token {
             location: location_start,
             variant: TokenVariant::StrOpen,
+        }
+    }
+
+    fn str_embed(&mut self) {
+        // If we have blocks {} nested in the embed, count their nested-ness
+        // so that we don't close before we're done.
+        let mut nest_level = 0;
+
+        // Build embed
+        let location_embed = self.location;
+        let mut embed_buffer = String::new();
+        embed_buffer.push('{');
+
+        loop {
+            // TOOD: Same as above
+            let c = self.advance().expect("Expected Str embed to be closed");
+            if c == '{' {
+                nest_level += 1;
+            } else if c == '}' {
+                if nest_level <= 0 {
+                    embed_buffer.push(c);
+                    break;
+                } else {
+                    nest_level -= 1;
+                }
+            }
+            embed_buffer.push(c);
+        }
+
+        // Finish embed
+        self.preempted.push_back(Token {
+            location: location_embed,
+            variant: TokenVariant::StrEmbed(embed_buffer),
+        });
+    }
+
+    // TODO: Escape sequences can probably produce longer actual sequences than a single char.
+    fn str_escape_sequence(&mut self) -> char {
+        let c = self.advance().expect("Expected escape sequence.");
+        match c {
+            'n' => '\n',
+            't' => '\t',
+            '\\' => '\\',
+            '\"' => '\"',
+            _ => todo!("Add more escape sequences: https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences")
         }
     }
 }
