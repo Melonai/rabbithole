@@ -3,17 +3,37 @@ use crate::parse::ast::nodes::Identifier;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use thiserror::Error;
 
-pub struct Scope {
-    scopes: Vec<HashMap<Identifier, AssignedValue>>,
-}
+type InnerScope = HashMap<Identifier, AssignedValue>;
+
+#[derive(Debug, Clone)]
+pub struct Scope(Rc<RefCell<InnerScope>>);
 
 impl Scope {
+    fn new() -> Self {
+        Scope(Rc::new(RefCell::new(HashMap::new())))
+    }
+
+    fn get(&self, ident: &str) -> Option<AssignedValue> {
+        self.0.borrow().get(ident).cloned()
+    }
+
+    fn insert(&self, ident: Identifier, value: AssignedValue) {
+        self.0.borrow_mut().insert(ident, value);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ScopeChain {
+    scopes: Vec<Scope>,
+}
+
+impl ScopeChain {
     pub fn new() -> Self {
-        Scope { scopes: Vec::new() }
+        ScopeChain { scopes: Vec::new() }
     }
 
     pub fn nest(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(Scope::new());
     }
 
     pub fn unnest(&mut self) {
@@ -70,9 +90,21 @@ impl Scope {
         }
         Err(ScopeError::UnknownIdentifier(ident.to_string()))
     }
+
+    // In contrast to set_var sets the var in the most inner scope so that it's always found first.
+    // This is used when setting parameters.
+    pub fn set_var_shadowed(&mut self, ident: &str, value: Value) {
+        let inner_scope = self
+            .scopes
+            .last_mut()
+            .expect("Tried accessing scope after last frame is gone.");
+
+        // Can shadowed values be constant? No idea!
+        inner_scope.insert(ident.to_string(), AssignedValue::Mutable(value));
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum AssignedValue {
     Constant(Value),
     Mutable(Value),

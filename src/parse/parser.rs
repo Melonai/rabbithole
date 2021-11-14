@@ -217,10 +217,10 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         while let Some(token) = consume_if!(self, GroupOpen | ArrayOpen | Dot) {
             match token.variant {
-                GroupOpen => loop {
+                GroupOpen => {
                     let mut arguments = Vec::new();
 
-                    loop {
+                    while consume_if!(self, GroupClose).is_none() {
                         arguments.push(self.expression()?);
 
                         if consume_if!(self, Comma).is_none() {
@@ -232,8 +232,8 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                     left = Expression::Call(Box::new(CallNode {
                         called: left,
                         arguments,
-                    }))
-                },
+                    }));
+                }
                 ArrayOpen => {
                     let index = self.expression()?;
                     consume!(self, ArrayClose)?;
@@ -335,10 +335,9 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn function(&mut self) -> Result<FnNode> {
         consume!(self, KeywordFn)?;
-        let token = self.tokens.next().expect("Expected function header.");
 
         let header = {
-            let has_self_receiver = if let KeywordSelf = token.variant {
+            let has_self_receiver = if consume_if!(self, KeywordSelf).is_some() {
                 consume_if!(self, Comma);
                 true
             } else {

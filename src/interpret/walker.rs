@@ -1,27 +1,36 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::parse::ast::{
-    expression::Expression,
-    nodes::{BinaryOperator as BinOp, BlockNode, SimpleLiteral, StrPart, UnaryOperator as UnOp},
-    statement::Statement,
-    Program,
+use crate::{
+    interpret::value::FnValue,
+    parse::ast::{
+        expression::Expression,
+        nodes::{
+            BinaryOperator as BinOp, BlockNode, SimpleLiteral, StrPart, UnaryOperator as UnOp,
+        },
+        statement::Statement,
+        Program,
+    },
 };
 use thiserror::Error;
 
 use super::{
-    scope::{Scope, ScopeError},
+    scope::{ScopeChain, ScopeError},
     value::{OperationError, Value},
 };
 
 pub struct Walker {
-    scope: Scope,
+    scope: ScopeChain,
 }
 
 impl Walker {
     pub fn new() -> Self {
         Walker {
-            scope: Scope::new(),
+            scope: ScopeChain::new(),
         }
+    }
+
+    pub fn new_with_scope(scope: ScopeChain) -> Self {
+        Walker { scope }
     }
 
     pub fn walk(&mut self, program: &Program) {
@@ -118,14 +127,20 @@ impl Walker {
                 }
                 .map_err(WalkerError::OperationError)
             }
-            Expression::Call(_) => todo!("Calls not implemented yet."),
+            Expression::Call(node) => {
+                let called = self.walk_expression(&node.called)?;
+
+                let mut argument_values = Vec::new();
+                for argument_node in node.arguments.iter() {
+                    argument_values.push(self.walk_expression(argument_node)?);
+                }
+
+                called.call(argument_values)
+            }
             Expression::ArrayAccess(node) => {
                 let array = self.walk_expression(&node.array)?;
                 let index = self.walk_expression(&node.index)?;
-                array
-                    .subscript(index)
-                    .map(|v| v.clone())
-                    .map_err(WalkerError::OperationError)
+                array.subscript(index).map_err(WalkerError::OperationError)
             }
             Expression::MemberAccess(_) => todo!("Structures not implemented yet."),
             Expression::Group(node) => self.walk_expression(node),
@@ -160,10 +175,10 @@ impl Walker {
 
                 Ok(Value::Str(buffer))
             }
-            Expression::FnLiteral(fn_node) => {
-                let node = fn_node.as_ref().clone();
-                Ok(Value::Fn(Rc::new(RefCell::new(node))))
-            }
+            Expression::FnLiteral(node) => Ok(Value::Fn(Rc::new(RefCell::new(FnValue {
+                node: node.as_ref().clone(),
+                scope: self.scope.clone(),
+            })))),
             Expression::If(if_node) => {
                 for conditional in &if_node.conditionals {
                     if let Value::Bool(bool) = self.walk_expression(&conditional.condition)? {

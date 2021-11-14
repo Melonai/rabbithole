@@ -1,6 +1,11 @@
-use crate::parse::ast::nodes::FnNode;
+use crate::parse::ast::{expression::Expression, nodes::FnNode};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 use thiserror::Error;
+
+use super::{
+    scope::ScopeChain,
+    walker::{Walker, WalkerError},
+};
 
 type ReferenceOnCopy<T> = Rc<RefCell<T>>;
 
@@ -11,7 +16,7 @@ pub enum Value {
     Int(i64),
     Bool(bool),
     Array(ReferenceOnCopy<Vec<Value>>),
-    Fn(ReferenceOnCopy<FnNode>),
+    Fn(ReferenceOnCopy<FnValue>),
     Void,
 }
 
@@ -214,6 +219,53 @@ impl Value {
             x => Err(OperationError::ArrayType(x.clone())),
         }
     }
+
+    pub fn call(&self, arguments: Vec<Value>) -> Result<Value, WalkerError> {
+        let called = match self {
+            Value::Fn(i) => i,
+            i => {
+                return Err(WalkerError::OperationError(OperationError::CallableType(
+                    i.clone(),
+                )))
+            }
+        }
+        .borrow();
+
+        // FIXME: Currently closures are able to re-assign values from the upper scopes.
+        // This is good behaviour, until a closure re-assigns a value that was declared after
+        // the closure even existed.
+        // Minimal reproducible example:
+        // ```rh
+        // closure = fn { y = 10; };
+        // y = 1;
+        // closure();
+        // print y;
+        // ```
+        // Expected: 1
+        // Actual: 10
+        let mut scope = called.scope.clone();
+        scope.nest();
+
+        let parameters = &called.node.header.parameters;
+
+        if parameters.len() != arguments.len() {
+            return Err(WalkerError::OperationError(
+                OperationError::WrongArgumentCount(parameters.len(), arguments.len()),
+            ));
+        }
+
+        for (argument, parameter) in arguments.into_iter().zip(parameters.iter()) {
+            scope.set_var_shadowed(&parameter.identifier, argument);
+        }
+
+        // Yes, we create a new walker for every function call,
+        // it's *way* easier that way.
+        let mut walker = Walker::new_with_scope(scope);
+        let result =
+            walker.walk_expression(&Expression::Block(Box::new(called.node.body.clone())))?;
+
+        Ok(result)
+    }
 }
 
 impl Value {
@@ -254,6 +306,12 @@ impl Display for Value {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct FnValue {
+    pub node: FnNode,
+    pub scope: ScopeChain,
+}
+
 #[derive(Error, Debug)]
 pub enum OperationError {
     #[error("Can't add value '{0}' of type '{}' to value '{1}' of type '{}'.", .0.type_name(), .1.type_name())]
@@ -276,4 +334,8 @@ pub enum OperationError {
     ArrayType(Value),
     #[error("Array index '{index}' out of range for array of length '{length}'.")]
     ArrayIndexOutOfRange { index: i64, length: usize },
+    #[error("Can't call value '{0}' of type '{}'.", .0.type_name())]
+    CallableType(Value),
+    #[error("Function expects {0} arguments, but {1} were given.")]
+    WrongArgumentCount(usize, usize),
 }
