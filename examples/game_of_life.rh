@@ -63,6 +63,7 @@ loop {
 
     # Print field.
     y = 0;
+    field_str = "";
     loop if y < FIELD_HEIGHT {
         row = "";
 
@@ -75,11 +76,11 @@ loop {
             };
             x = x + 1;
         };
-        print row;
+        field_str = "{field_str}{row}\n";
         y = y + 1;
     };
 
-    print "";
+    print field_str;
 
     field = new_field;
 };
