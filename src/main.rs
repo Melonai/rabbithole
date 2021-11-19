@@ -3,6 +3,7 @@ use std::{env, fs, path::Path};
 mod interpret;
 mod lex;
 mod parse;
+mod types;
 
 use lex::lexer::Lexer;
 
@@ -27,7 +28,7 @@ fn file(filename: impl AsRef<Path>) {
     let mut parser = Parser::new(lexer);
 
     let node = parser.parse().expect("Failed parsing.");
-    let mut walker = Walker::new();
+    let mut walker = Walker::root();
 
     walker.walk(&node);
 }
@@ -35,7 +36,7 @@ fn file(filename: impl AsRef<Path>) {
 fn repl() {
     const PROMPT: &str = "🐇: ";
 
-    let mut walker = Walker::new();
+    let mut walker = Walker::root();
 
     let mut input_buffer;
 

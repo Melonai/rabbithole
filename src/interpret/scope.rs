@@ -1,5 +1,8 @@
-use super::value::Value;
-use crate::parse::ast::nodes::Identifier;
+use super::value::{Value, ValueVariant};
+use crate::{
+    parse::ast::nodes::Identifier,
+    types::{bag::TypeBag, TypeVariant},
+};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use thiserror::Error;
 
@@ -82,10 +85,10 @@ impl ScopeChain {
         }
     }
 
-    pub fn get_var(&self, ident: &str) -> Result<Value, ScopeError> {
+    pub fn get_var(&self, ident: &str, types: &TypeBag) -> Result<Value, ScopeError> {
         for scope in self.scopes.iter().rev() {
             if let Some(value) = scope.get(ident) {
-                return Ok(value.get_value());
+                return Ok(value.get_value(types));
             }
         }
         Err(ScopeError::UnknownIdentifier(ident.to_string()))
@@ -111,19 +114,32 @@ enum AssignedValue {
 }
 
 impl AssignedValue {
-    fn get_value(&self) -> Value {
+    fn get_value(&self, types: &TypeBag) -> Value {
         match self {
             Self::Mutable(value) => value.clone(),
-            Self::Constant(value) => match value {
-                Value::Array(reference) => {
+            Self::Constant(value) => match &value.variant {
+                ValueVariant::Array(reference) => {
                     let underlying_value = reference.borrow().clone();
-                    Value::Array(Rc::new(RefCell::new(underlying_value)))
+
+                    Value {
+                        variant: ValueVariant::Array(Rc::new(RefCell::new(underlying_value))),
+                        // FIXME: Give arrays actual type instead of void.
+                        typ: types.create_type(TypeVariant::Array(types.void())),
+                    }
                 }
-                Value::Fn(reference) => {
+                ValueVariant::Fn(reference) => {
                     let underlying_value = reference.borrow().clone();
-                    Value::Fn(Rc::new(RefCell::new(underlying_value)))
+
+                    Value {
+                        variant: ValueVariant::Fn(Rc::new(RefCell::new(underlying_value))),
+                        // FIXME: Give functions actual types.
+                        typ: types.create_type(TypeVariant::Fn {
+                            parameters: HashMap::new(),
+                            returns: types.void(),
+                        }),
+                    }
                 }
-                x => x.clone(),
+                _ => value.clone(),
             },
         }
     }

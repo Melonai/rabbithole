@@ -1,3 +1,4 @@
 mod scope;
-mod value;
+mod operator;
+pub mod value;
 pub mod walker;

@@ -1,7 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    interpret::value::FnValue,
+    interpret::{
+        operator::ValueOperator,
+        value::{FnValue, ValueVariant},
+    },
     parse::ast::{
         expression::Expression,
         nodes::{
@@ -10,27 +13,32 @@ use crate::{
         statement::Statement,
         Program,
     },
+    types::{bag::TypeBag, TypeVariant},
 };
 use thiserror::Error;
 
 use super::{
+    operator::OperationError,
     scope::{ScopeChain, ScopeError},
-    value::{OperationError, Value},
+    value::Value,
 };
 
 pub struct Walker {
+    types: TypeBag,
     scope: ScopeChain,
 }
 
 impl Walker {
-    pub fn new() -> Self {
+    // Should preferably be called only once.
+    pub fn root() -> Self {
         Walker {
             scope: ScopeChain::new(),
+            types: TypeBag::new(),
         }
     }
 
-    pub fn new_with_scope(scope: ScopeChain) -> Self {
-        Walker { scope }
+    pub fn new(scope: ScopeChain, types: TypeBag) -> Self {
+        Walker { scope, types }
     }
 
     pub fn walk(&mut self, program: &Program) {
@@ -85,17 +93,17 @@ impl Walker {
                 // Short-circuting operators
                 if let BinOp::And | BinOp::Or = op {
                     let left_value = self.walk_expression(left)?;
-                    let is_left_true = match left_value {
-                        Value::Bool(bool) => bool,
+                    let is_left_true = match left_value.variant {
+                        ValueVariant::Bool(bool) => bool,
                         _ => return Err(WalkerError::WrongAndOrType),
                     };
 
                     if let BinOp::And = op {
                         if !is_left_true {
-                            return Ok(Value::Bool(false));
+                            return Ok(Value::bool(false, &self.types));
                         }
                     } else if is_left_true {
-                        return Ok(Value::Bool(true));
+                        return Ok(Value::bool(true, &self.types));
                     }
 
                     return self.walk_expression(right);
@@ -104,19 +112,21 @@ impl Walker {
                 let left = self.walk_expression(left)?;
                 let right = self.walk_expression(right)?;
 
+                let exe = ValueOperator::new(&self.types);
+
                 // Other operators
                 match op {
-                    BinOp::Plus => left.add(right),
-                    BinOp::Minus => left.sub(right),
-                    BinOp::Star => left.mul(right),
-                    BinOp::Slash => left.div(right),
+                    BinOp::Plus => exe.add(left, right),
+                    BinOp::Minus => exe.sub(left, right),
+                    BinOp::Star => exe.mul(left, right),
+                    BinOp::Slash => exe.div(left, right),
                     BinOp::Dot => todo!("Structures not implemented yet."),
-                    BinOp::Eq => left.eq(right),
-                    BinOp::Neq => left.neq(right),
-                    BinOp::Gt => left.gt(right),
-                    BinOp::Gte => left.gte(right),
-                    BinOp::Lt => right.gt(left),
-                    BinOp::Lte => right.gte(left),
+                    BinOp::Eq => exe.eq(left, right),
+                    BinOp::Neq => exe.neq(left, right),
+                    BinOp::Gt => exe.gt(left, right),
+                    BinOp::Gte => exe.gte(left, right),
+                    BinOp::Lt => exe.gt(right, left),
+                    BinOp::Lte => exe.gte(right, left),
 
                     _ => unreachable!(),
                 }
@@ -125,9 +135,11 @@ impl Walker {
             Expression::Unary { op, right } => {
                 let value = self.walk_expression(right)?;
 
+                let exe = ValueOperator::new(&self.types);
+
                 match op {
-                    UnOp::Minus => value.neg(),
-                    UnOp::Not => value.not(),
+                    UnOp::Minus => exe.neg(value),
+                    UnOp::Not => exe.not(value),
                 }
                 .map_err(WalkerError::OperationError)
             }
@@ -139,12 +151,16 @@ impl Walker {
                     argument_values.push(self.walk_expression(argument_node)?);
                 }
 
-                called.call(argument_values)
+                let exe = ValueOperator::new(&self.types);
+                exe.call(&called, argument_values)
             }
             Expression::ArrayAccess(node) => {
                 let array = self.walk_expression(&node.array)?;
                 let index = self.walk_expression(&node.index)?;
-                array.subscript(index).map_err(WalkerError::OperationError)
+
+                let exe = ValueOperator::new(&self.types);
+                exe.subscript(array, index)
+                    .map_err(WalkerError::OperationError)
             }
             Expression::MemberAccess(_) => todo!("Structures not implemented yet."),
             Expression::Group(node) => self.walk_expression(node),
@@ -153,13 +169,19 @@ impl Walker {
                 for expression in &node.elements {
                     elements.push(self.walk_expression(expression)?);
                 }
-                Ok(Value::Array(Rc::new(RefCell::new(elements))))
+                Ok(Value {
+                    variant: ValueVariant::Array(Rc::new(RefCell::new(elements))),
+                    // FIXME: Use actual type.
+                    typ: self
+                        .types
+                        .create_type(TypeVariant::Array(self.types.void())),
+                })
             }
             Expression::SimpleLiteral(token) => {
                 let value = match token {
-                    SimpleLiteral::Int(int) => Value::Int(*int as i64),
-                    SimpleLiteral::Float(float) => Value::Float(*float as f64),
-                    SimpleLiteral::Bool(bool) => Value::Bool(*bool),
+                    SimpleLiteral::Int(int) => Value::int(*int as i64, &self.types),
+                    SimpleLiteral::Float(float) => Value::float(*float as f64, &self.types),
+                    SimpleLiteral::Bool(bool) => Value::bool(*bool, &self.types),
                 };
 
                 Ok(value)
@@ -177,15 +199,24 @@ impl Walker {
                     };
                 }
 
-                Ok(Value::Str(buffer))
+                Ok(Value::str(buffer, &self.types))
             }
-            Expression::FnLiteral(node) => Ok(Value::Fn(Rc::new(RefCell::new(FnValue {
-                node: node.as_ref().clone(),
-                scope: self.scope.clone(),
-            })))),
+            Expression::FnLiteral(node) => Ok(Value {
+                variant: ValueVariant::Fn(Rc::new(RefCell::new(FnValue {
+                    node: node.as_ref().clone(),
+                    scope: self.scope.clone(),
+                }))),
+                // FIXME: Use actual type here.
+                typ: self.types.create_type(TypeVariant::Fn {
+                    parameters: HashMap::new(),
+                    returns: self.types.void(),
+                }),
+            }),
             Expression::If(if_node) => {
                 for conditional in &if_node.conditionals {
-                    if let Value::Bool(bool) = self.walk_expression(&conditional.condition)? {
+                    if let ValueVariant::Bool(bool) =
+                        self.walk_expression(&conditional.condition)?.variant
+                    {
                         if bool {
                             return self.walk_block(&conditional.block);
                         }
@@ -197,17 +228,19 @@ impl Walker {
                 if let Some(else_conditional) = &if_node.else_block {
                     self.walk_block(else_conditional)
                 } else {
-                    Ok(Value::Void)
+                    Ok(Value::void(&self.types))
                 }
             }
             Expression::Loop(loop_node) => {
                 if let Some(condition) = &loop_node.condition {
                     loop {
-                        if let Value::Bool(should_repeat) = self.walk_expression(condition)? {
+                        if let ValueVariant::Bool(should_repeat) =
+                            self.walk_expression(condition)?.variant
+                        {
                             if should_repeat {
                                 match self.walk_block(&loop_node.body) {
                                     Err(WalkerError::LoopBreak(loop_value)) => {
-                                        return Ok(loop_value.unwrap_or(Value::Void));
+                                        return Ok(loop_value.unwrap_or(Value::void(&self.types)));
                                     }
                                     // Do nothing for continue and continue looping of course, you dummy.
                                     Err(WalkerError::LoopContinue) => {}
@@ -216,7 +249,7 @@ impl Walker {
                                     _ => {}
                                 }
                             } else {
-                                return Ok(Value::Void);
+                                return Ok(Value::void(&self.types));
                             }
                         } else {
                             return Err(WalkerError::WrongLoopConditionType);
@@ -227,7 +260,7 @@ impl Walker {
                     loop {
                         match self.walk_block(&loop_node.body) {
                             Err(WalkerError::LoopBreak(loop_value)) => {
-                                break Ok(loop_value.unwrap_or(Value::Void));
+                                break Ok(loop_value.unwrap_or(Value::void(&self.types)));
                             }
                             Err(WalkerError::LoopContinue) => {}
                             Err(x) => return Err(x),
@@ -236,9 +269,10 @@ impl Walker {
                     }
                 }
             }
-            Expression::Identifier(ident) => {
-                self.scope.get_var(ident).map_err(WalkerError::ScopeError)
-            }
+            Expression::Identifier(ident) => self
+                .scope
+                .get_var(ident, &self.types)
+                .map_err(WalkerError::ScopeError),
         }
     }
 
@@ -252,7 +286,7 @@ impl Walker {
         let result = if let Some(tail_expression) = &block.tail_expression {
             Ok(self.walk_expression(tail_expression)?)
         } else {
-            Ok(Value::Void)
+            Ok(Value::void(&self.types))
         };
 
         self.scope.unnest();
@@ -274,8 +308,9 @@ impl Walker {
                 let index = self.walk_expression(&node.index)?;
                 let value = self.walk_expression(rvalue)?;
 
-                array
-                    .subscript_assign(index, value)
+                let exe = ValueOperator::new(&self.types);
+
+                exe.subscript_assign(&mut array, index, value)
                     .map_err(WalkerError::OperationError)
             }
             Expression::Identifier(ident) => {
