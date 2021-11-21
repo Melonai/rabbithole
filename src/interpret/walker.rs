@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     interpret::{
         operator::ValueOperator,
-        value::{FnValue, ValueVariant},
+        value::{FnValue, ValueKind},
     },
     parse::ast::{
         expression::Expression,
@@ -13,7 +13,7 @@ use crate::{
         statement::Statement,
         Program,
     },
-    types::{bag::TypeBag, TypeVariant},
+    types::{bag::TypeBag, TypeKind},
 };
 use thiserror::Error;
 
@@ -93,8 +93,8 @@ impl Walker {
                 // Short-circuting operators
                 if let BinOp::And | BinOp::Or = op {
                     let left_value = self.walk_expression(left)?;
-                    let is_left_true = match left_value.variant {
-                        ValueVariant::Bool(bool) => bool,
+                    let is_left_true = match left_value.kind {
+                        ValueKind::Bool(bool) => bool,
                         _ => return Err(WalkerError::WrongAndOrType),
                     };
 
@@ -170,11 +170,9 @@ impl Walker {
                     elements.push(self.walk_expression(expression)?);
                 }
                 Ok(Value {
-                    variant: ValueVariant::Array(Rc::new(RefCell::new(elements))),
+                    kind: ValueKind::Array(Rc::new(RefCell::new(elements))),
                     // FIXME: Use actual type.
-                    typ: self
-                        .types
-                        .create_type(TypeVariant::Array(self.types.void())),
+                    typ: self.types.create_type(TypeKind::Array(self.types.void())),
                 })
             }
             Expression::SimpleLiteral(token) => {
@@ -202,20 +200,20 @@ impl Walker {
                 Ok(Value::str(buffer, &self.types))
             }
             Expression::FnLiteral(node) => Ok(Value {
-                variant: ValueVariant::Fn(Rc::new(RefCell::new(FnValue {
+                kind: ValueKind::Fn(Rc::new(RefCell::new(FnValue {
                     node: node.as_ref().clone(),
                     scope: self.scope.clone(),
                 }))),
                 // FIXME: Use actual type here.
-                typ: self.types.create_type(TypeVariant::Fn {
+                typ: self.types.create_type(TypeKind::Fn {
                     parameters: HashMap::new(),
                     returns: self.types.void(),
                 }),
             }),
             Expression::If(if_node) => {
                 for conditional in &if_node.conditionals {
-                    if let ValueVariant::Bool(bool) =
-                        self.walk_expression(&conditional.condition)?.variant
+                    if let ValueKind::Bool(bool) =
+                        self.walk_expression(&conditional.condition)?.kind
                     {
                         if bool {
                             return self.walk_block(&conditional.block);
@@ -234,8 +232,8 @@ impl Walker {
             Expression::Loop(loop_node) => {
                 if let Some(condition) = &loop_node.condition {
                     loop {
-                        if let ValueVariant::Bool(should_repeat) =
-                            self.walk_expression(condition)?.variant
+                        if let ValueKind::Bool(should_repeat) =
+                            self.walk_expression(condition)?.kind
                         {
                             if should_repeat {
                                 match self.walk_block(&loop_node.body) {

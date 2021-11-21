@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, iter::Peekable, str::Chars};
 
-use super::token::{Location, Token, TokenVariant};
+use super::token::{Location, Token, TokenKind};
 
 pub struct Lexer<'source> {
     location: Location,
@@ -14,7 +14,7 @@ impl Iterator for Lexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use super::token::TokenVariant::*;
+        use super::token::TokenKind::*;
 
         if self.done {
             return None;
@@ -31,7 +31,7 @@ impl Iterator for Lexer<'_> {
             self.done = true;
             return Some(Token {
                 location: self.location,
-                variant: Eof,
+                kind: Eof,
             });
         }
 
@@ -47,7 +47,7 @@ impl Iterator for Lexer<'_> {
             let location = self.location;
 
             // Fixed length tokens
-            let variant = match self.advance().unwrap() {
+            let kind = match self.advance().unwrap() {
                 '+' => OpPlus,
                 '-' => {
                     if self.advance_if('>') {
@@ -119,7 +119,7 @@ impl Iterator for Lexer<'_> {
                 _ => Unknown(c),
             };
 
-            Token { location, variant }
+            Token { location, kind }
         };
 
         Some(token)
@@ -188,15 +188,15 @@ impl<'s> Lexer<'s> {
             buffer.push(c);
         }
 
-        let variant = if is_integer {
+        let kind = if is_integer {
             let int = buffer.parse().expect("Failed lexing integer token.");
-            TokenVariant::Int(int)
+            TokenKind::Int(int)
         } else {
             let float = buffer.parse().expect("Failed lexing float token.");
-            TokenVariant::Float(float)
+            TokenKind::Float(float)
         };
 
-        Token { location, variant }
+        Token { location, kind }
     }
 
     fn identifier(&mut self) -> Token {
@@ -209,25 +209,25 @@ impl<'s> Lexer<'s> {
             buffer.push(c);
         }
 
-        let variant = match buffer.as_str() {
-            "fn" => TokenVariant::KeywordFn,
-            "if" => TokenVariant::KeywordIf,
-            "elif" => TokenVariant::KeywordElif,
-            "else" => TokenVariant::KeywordElse,
-            "loop" => TokenVariant::KeywordLoop,
-            "type" => TokenVariant::KeywordType,
-            "form" => TokenVariant::KeywordForm,
-            "self" => TokenVariant::KeywordSelf,
-            "true" => TokenVariant::KeywordTrue,
-            "false" => TokenVariant::KeywordFalse,
-            "return" => TokenVariant::KeywordReturn,
-            "break" => TokenVariant::KeywordBreak,
-            "continue" => TokenVariant::KeywordContinue,
-            "print" => TokenVariant::KeywordPrint,
-            _ => TokenVariant::Ident(buffer),
+        let kind = match buffer.as_str() {
+            "fn" => TokenKind::KeywordFn,
+            "if" => TokenKind::KeywordIf,
+            "elif" => TokenKind::KeywordElif,
+            "else" => TokenKind::KeywordElse,
+            "loop" => TokenKind::KeywordLoop,
+            "type" => TokenKind::KeywordType,
+            "form" => TokenKind::KeywordForm,
+            "self" => TokenKind::KeywordSelf,
+            "true" => TokenKind::KeywordTrue,
+            "false" => TokenKind::KeywordFalse,
+            "return" => TokenKind::KeywordReturn,
+            "break" => TokenKind::KeywordBreak,
+            "continue" => TokenKind::KeywordContinue,
+            "print" => TokenKind::KeywordPrint,
+            _ => TokenKind::Ident(buffer),
         };
 
-        Token { location, variant }
+        Token { location, kind }
     }
 
     fn str(&mut self) -> Token {
@@ -247,7 +247,7 @@ impl<'s> Lexer<'s> {
                 if !str_buffer.is_empty() {
                     self.preempted.push_back(Token {
                         location: location_str,
-                        variant: TokenVariant::Str(str_buffer),
+                        kind: TokenKind::Str(str_buffer),
                     });
                 }
                 str_buffer = String::new();
@@ -265,7 +265,7 @@ impl<'s> Lexer<'s> {
         if !str_buffer.is_empty() {
             self.preempted.push_back(Token {
                 location: location_str,
-                variant: TokenVariant::Str(str_buffer),
+                kind: TokenKind::Str(str_buffer),
             });
         }
 
@@ -276,12 +276,12 @@ impl<'s> Lexer<'s> {
                 col: self.location.col - 1,
                 row: self.location.row,
             },
-            variant: TokenVariant::StrClose,
+            kind: TokenKind::StrClose,
         });
 
         Token {
             location: location_start,
-            variant: TokenVariant::StrOpen,
+            kind: TokenKind::StrOpen,
         }
     }
 
@@ -314,7 +314,7 @@ impl<'s> Lexer<'s> {
         // Finish embed
         self.preempted.push_back(Token {
             location: location_embed,
-            variant: TokenVariant::StrEmbed(embed_buffer),
+            kind: TokenKind::StrEmbed(embed_buffer),
         });
     }
 

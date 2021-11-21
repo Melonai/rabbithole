@@ -7,11 +7,11 @@ pub struct Location {
 #[derive(Clone, Debug)]
 pub struct Token {
     pub location: Location,
-    pub variant: TokenVariant,
+    pub kind: TokenKind,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TokenVariant {
+pub enum TokenKind {
     // Basic math operators
     OpPlus,
     OpMinus,
@@ -49,7 +49,7 @@ pub enum TokenVariant {
     // Literals
     Int(u32),
     Float(f32),
-    
+
     // String Literal Tokens
     Str(String),
     // StrOpen and StrClose are necessary for string embeds.
@@ -59,7 +59,7 @@ pub enum TokenVariant {
     StrClose,
     // The string embed has to be lexed by a *seperate* lexer.
     StrEmbed(String),
-    
+
     Ident(String),
 
     // Keywords

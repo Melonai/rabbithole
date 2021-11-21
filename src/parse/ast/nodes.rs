@@ -1,4 +1,4 @@
-use crate::lex::token::{Token, TokenVariant::*};
+use crate::lex::token::{Token, TokenKind::*};
 
 use super::{expression::Expression, statement::Statement};
 
@@ -23,7 +23,7 @@ pub enum BinaryOperator {
 
 impl BinaryOperator {
     pub fn from_token(token: Token) -> Self {
-        match token.variant {
+        match token.kind {
             OpPlus => Self::Plus,
             OpMinus => Self::Minus,
             OpStar => Self::Star,
@@ -39,7 +39,7 @@ impl BinaryOperator {
             Assign => Self::Assign,
             ConstAssign => Self::ConstAssign,
             Dot => Self::Dot,
-            _ => panic!("Can't create binary operator from '{:?}'.", token.variant),
+            _ => panic!("Can't create binary operator from '{:?}'.", token.kind),
         }
     }
 }
@@ -52,10 +52,10 @@ pub enum UnaryOperator {
 
 impl UnaryOperator {
     pub fn from_token(token: Token) -> Self {
-        match token.variant {
+        match token.kind {
             OpMinus => Self::Minus,
             OpNot => Self::Not,
-            _ => panic!("Can't create unary operator from '{:?}'.", token.variant),
+            _ => panic!("Can't create unary operator from '{:?}'.", token.kind),
         }
     }
 }
@@ -69,12 +69,12 @@ pub enum SimpleLiteral {
 
 impl SimpleLiteral {
     pub fn from_token(token: Token) -> Self {
-        match token.variant {
+        match token.kind {
             Int(int) => Self::Int(int),
             Float(float) => Self::Float(float),
             KeywordTrue => Self::Bool(true),
             KeywordFalse => Self::Bool(false),
-            _ => panic!("Can't create literal from '{:?}'.", token.variant),
+            _ => panic!("Can't create literal from '{:?}'.", token.kind),
         }
     }
 }
@@ -115,7 +115,7 @@ pub struct StrNode {
 #[derive(Debug, Clone)]
 pub enum StrPart {
     Literal(String),
-    Embed(Expression)
+    Embed(Expression),
 }
 
 #[derive(Debug, Clone)]

@@ -1,7 +1,7 @@
-use super::value::{Value, ValueVariant};
+use super::value::{Value, ValueKind};
 use crate::{
     parse::ast::nodes::Identifier,
-    types::{bag::TypeBag, TypeVariant},
+    types::{bag::TypeBag, TypeKind},
 };
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use thiserror::Error;
@@ -117,23 +117,23 @@ impl AssignedValue {
     fn get_value(&self, types: &TypeBag) -> Value {
         match self {
             Self::Mutable(value) => value.clone(),
-            Self::Constant(value) => match &value.variant {
-                ValueVariant::Array(reference) => {
+            Self::Constant(value) => match &value.kind {
+                ValueKind::Array(reference) => {
                     let underlying_value = reference.borrow().clone();
 
                     Value {
-                        variant: ValueVariant::Array(Rc::new(RefCell::new(underlying_value))),
+                        kind: ValueKind::Array(Rc::new(RefCell::new(underlying_value))),
                         // FIXME: Give arrays actual type instead of void.
-                        typ: types.create_type(TypeVariant::Array(types.void())),
+                        typ: types.create_type(TypeKind::Array(types.void())),
                     }
                 }
-                ValueVariant::Fn(reference) => {
+                ValueKind::Fn(reference) => {
                     let underlying_value = reference.borrow().clone();
 
                     Value {
-                        variant: ValueVariant::Fn(Rc::new(RefCell::new(underlying_value))),
+                        kind: ValueKind::Fn(Rc::new(RefCell::new(underlying_value))),
                         // FIXME: Give functions actual types.
-                        typ: types.create_type(TypeVariant::Fn {
+                        typ: types.create_type(TypeKind::Fn {
                             parameters: HashMap::new(),
                             returns: types.void(),
                         }),

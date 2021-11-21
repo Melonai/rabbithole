@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::{parse::ast::expression::Expression, types::bag::TypeBag};
 
 use super::{
-    value::{Value, ValueVariant},
+    value::{Value, ValueKind},
     walker::{Walker, WalkerError},
 };
 
@@ -17,23 +17,23 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn add(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Str(ref l) => match rhs.variant {
-                ValueVariant::Str(r) => Ok(Value::str(format!("{}{}", l, r), self.types)),
-                ValueVariant::Float(r) => Ok(Value::str(format!("{}{}", l, r), self.types)),
-                ValueVariant::Int(r) => Ok(Value::str(format!("{}{}", l, r), self.types)),
+        match lhs.kind {
+            ValueKind::Str(ref l) => match rhs.kind {
+                ValueKind::Str(r) => Ok(Value::str(format!("{}{}", l, r), self.types)),
+                ValueKind::Float(r) => Ok(Value::str(format!("{}{}", l, r), self.types)),
+                ValueKind::Int(r) => Ok(Value::str(format!("{}{}", l, r), self.types)),
                 _ => Err(OperationError::AddTypes(lhs, rhs)),
             },
-            ValueVariant::Float(l) => match rhs.variant {
-                ValueVariant::Str(r) => Ok(Value::str(l.to_string() + &r, self.types)),
-                ValueVariant::Float(r) => Ok(Value::float(l + r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::float(l + r as f64, self.types)),
+            ValueKind::Float(l) => match rhs.kind {
+                ValueKind::Str(r) => Ok(Value::str(l.to_string() + &r, self.types)),
+                ValueKind::Float(r) => Ok(Value::float(l + r, self.types)),
+                ValueKind::Int(r) => Ok(Value::float(l + r as f64, self.types)),
                 _ => Err(OperationError::AddTypes(lhs, rhs)),
             },
-            ValueVariant::Int(l) => match rhs.variant {
-                ValueVariant::Str(r) => Ok(Value::str(l.to_string() + &r, self.types)),
-                ValueVariant::Float(r) => Ok(Value::float(l as f64 + r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::int(l + r, self.types)),
+            ValueKind::Int(l) => match rhs.kind {
+                ValueKind::Str(r) => Ok(Value::str(l.to_string() + &r, self.types)),
+                ValueKind::Float(r) => Ok(Value::float(l as f64 + r, self.types)),
+                ValueKind::Int(r) => Ok(Value::int(l + r, self.types)),
                 _ => Err(OperationError::AddTypes(lhs, rhs)),
             },
             _ => Err(OperationError::AddTypes(lhs, rhs)),
@@ -41,15 +41,15 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn sub(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Float(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::float(l - r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::float(l - r as f64, self.types)),
+        match lhs.kind {
+            ValueKind::Float(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::float(l - r, self.types)),
+                ValueKind::Int(r) => Ok(Value::float(l - r as f64, self.types)),
                 _ => Err(OperationError::SubTypes(lhs, rhs)),
             },
-            ValueVariant::Int(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::float(l as f64 - r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::int(l - r, self.types)),
+            ValueKind::Int(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::float(l as f64 - r, self.types)),
+                ValueKind::Int(r) => Ok(Value::int(l - r, self.types)),
                 _ => Err(OperationError::SubTypes(lhs, rhs)),
             },
             _ => Err(OperationError::SubTypes(lhs, rhs)),
@@ -57,15 +57,15 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn mul(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Float(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::float(l * r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::float(l * r as f64, self.types)),
+        match lhs.kind {
+            ValueKind::Float(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::float(l * r, self.types)),
+                ValueKind::Int(r) => Ok(Value::float(l * r as f64, self.types)),
                 _ => Err(OperationError::MulTypes(lhs, rhs)),
             },
-            ValueVariant::Int(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::float(l as f64 * r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::int(l * r, self.types)),
+            ValueKind::Int(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::float(l as f64 * r, self.types)),
+                ValueKind::Int(r) => Ok(Value::int(l * r, self.types)),
                 _ => Err(OperationError::MulTypes(lhs, rhs)),
             },
             _ => Err(OperationError::MulTypes(lhs, rhs)),
@@ -73,15 +73,15 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn div(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Float(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::float(l / r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::float(l / r as f64, self.types)),
+        match lhs.kind {
+            ValueKind::Float(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::float(l / r, self.types)),
+                ValueKind::Int(r) => Ok(Value::float(l / r as f64, self.types)),
                 _ => Err(OperationError::DivTypes(lhs, rhs)),
             },
-            ValueVariant::Int(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::float(l as f64 / r, self.types)),
-                ValueVariant::Int(r) => Ok(Value::float(l as f64 / r as f64, self.types)),
+            ValueKind::Int(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::float(l as f64 / r, self.types)),
+                ValueKind::Int(r) => Ok(Value::float(l as f64 / r as f64, self.types)),
                 _ => Err(OperationError::DivTypes(lhs, rhs)),
             },
             _ => Err(OperationError::DivTypes(lhs, rhs)),
@@ -89,21 +89,21 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn eq(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Str(l) => match rhs.variant {
-                ValueVariant::Str(r) => Ok(Value::bool(l == r, self.types)),
+        match lhs.kind {
+            ValueKind::Str(l) => match rhs.kind {
+                ValueKind::Str(r) => Ok(Value::bool(l == r, self.types)),
                 _ => Ok(Value::bool(false, self.types)),
             },
-            ValueVariant::Float(l) => match rhs.variant {
-                ValueVariant::Float(r) => Ok(Value::bool(l == r, self.types)),
+            ValueKind::Float(l) => match rhs.kind {
+                ValueKind::Float(r) => Ok(Value::bool(l == r, self.types)),
                 _ => Ok(Value::bool(false, self.types)),
             },
-            ValueVariant::Int(l) => match rhs.variant {
-                ValueVariant::Int(r) => Ok(Value::bool(l == r, self.types)),
+            ValueKind::Int(l) => match rhs.kind {
+                ValueKind::Int(r) => Ok(Value::bool(l == r, self.types)),
                 _ => Ok(Value::bool(false, self.types)),
             },
-            ValueVariant::Bool(l) => match rhs.variant {
-                ValueVariant::Bool(r) => Ok(Value::bool(l == r, self.types)),
+            ValueKind::Bool(l) => match rhs.kind {
+                ValueKind::Bool(r) => Ok(Value::bool(l == r, self.types)),
                 _ => Ok(Value::bool(false, self.types)),
             },
             _ => Ok(Value::bool(false, self.types)),
@@ -112,7 +112,7 @@ impl<'t> ValueOperator<'t> {
 
     pub fn neq(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
         if let Ok(Value {
-            variant: ValueVariant::Bool(value),
+            kind: ValueKind::Bool(value),
             ..
         }) = self.eq(lhs, rhs)
         {
@@ -123,15 +123,15 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn gt(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Float(r) => match rhs.variant {
-                ValueVariant::Float(l) => Ok(Value::bool(r > l, self.types)),
-                ValueVariant::Int(l) => Ok(Value::bool(r > l as f64, self.types)),
+        match lhs.kind {
+            ValueKind::Float(r) => match rhs.kind {
+                ValueKind::Float(l) => Ok(Value::bool(r > l, self.types)),
+                ValueKind::Int(l) => Ok(Value::bool(r > l as f64, self.types)),
                 _ => Err(OperationError::CompareTypes(lhs, rhs)),
             },
-            ValueVariant::Int(r) => match rhs.variant {
-                ValueVariant::Float(l) => Ok(Value::bool(r as f64 > l, self.types)),
-                ValueVariant::Int(l) => Ok(Value::bool(r > l, self.types)),
+            ValueKind::Int(r) => match rhs.kind {
+                ValueKind::Float(l) => Ok(Value::bool(r as f64 > l, self.types)),
+                ValueKind::Int(l) => Ok(Value::bool(r > l, self.types)),
                 _ => Err(OperationError::CompareTypes(lhs, rhs)),
             },
             _ => Err(OperationError::CompareTypes(lhs, rhs)),
@@ -139,15 +139,15 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn gte(&self, lhs: Value, rhs: Value) -> Result<Value, OperationError> {
-        match lhs.variant {
-            ValueVariant::Float(r) => match rhs.variant {
-                ValueVariant::Float(l) => Ok(Value::bool(r >= l, self.types)),
-                ValueVariant::Int(l) => Ok(Value::bool(r >= l as f64, self.types)),
+        match lhs.kind {
+            ValueKind::Float(r) => match rhs.kind {
+                ValueKind::Float(l) => Ok(Value::bool(r >= l, self.types)),
+                ValueKind::Int(l) => Ok(Value::bool(r >= l as f64, self.types)),
                 _ => Err(OperationError::CompareTypes(lhs, rhs)),
             },
-            ValueVariant::Int(r) => match rhs.variant {
-                ValueVariant::Float(l) => Ok(Value::bool(r as f64 >= l, self.types)),
-                ValueVariant::Int(l) => Ok(Value::bool(r >= l, self.types)),
+            ValueKind::Int(r) => match rhs.kind {
+                ValueKind::Float(l) => Ok(Value::bool(r as f64 >= l, self.types)),
+                ValueKind::Int(l) => Ok(Value::bool(r >= l, self.types)),
                 _ => Err(OperationError::CompareTypes(lhs, rhs)),
             },
             _ => Err(OperationError::CompareTypes(lhs, rhs)),
@@ -155,28 +155,28 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn neg(&self, val: Value) -> Result<Value, OperationError> {
-        match val.variant {
-            ValueVariant::Float(float) => Ok(Value::float(-float, self.types)),
-            ValueVariant::Int(int) => Ok(Value::int(-int, self.types)),
+        match val.kind {
+            ValueKind::Float(float) => Ok(Value::float(-float, self.types)),
+            ValueKind::Int(int) => Ok(Value::int(-int, self.types)),
             _ => Err(OperationError::NegType(val)),
         }
     }
 
     pub fn not(&self, val: Value) -> Result<Value, OperationError> {
-        match val.variant {
-            ValueVariant::Bool(bool) => Ok(Value::bool(bool, self.types)),
+        match val.kind {
+            ValueKind::Bool(bool) => Ok(Value::bool(bool, self.types)),
             _ => Err(OperationError::NotType(val)),
         }
     }
 
     pub fn subscript(&self, val: Value, index: Value) -> Result<Value, OperationError> {
-        let index = match index.variant {
-            ValueVariant::Int(i) => i,
+        let index = match index.kind {
+            ValueKind::Int(i) => i,
             _ => return Err(OperationError::ArrayIndexType(index)),
         };
 
-        match val.variant {
-            ValueVariant::Array(a) => {
+        match val.kind {
+            ValueKind::Array(a) => {
                 let array = a.borrow();
                 if index < 0 || index as usize >= array.len() {
                     Err(OperationError::ArrayIndexOutOfRange {
@@ -198,13 +198,13 @@ impl<'t> ValueOperator<'t> {
         index: Value,
         value: Value,
     ) -> Result<Value, OperationError> {
-        let index = match index.variant {
-            ValueVariant::Int(i) => i,
+        let index = match index.kind {
+            ValueKind::Int(i) => i,
             _ => return Err(OperationError::ArrayIndexType(index)),
         };
 
-        match &val.variant {
-            ValueVariant::Array(a) => {
+        match &val.kind {
+            ValueKind::Array(a) => {
                 let mut array = a.borrow_mut();
                 if index < 0 || index as usize >= array.len() {
                     Err(OperationError::ArrayIndexOutOfRange {
@@ -221,8 +221,8 @@ impl<'t> ValueOperator<'t> {
     }
 
     pub fn call(&self, val: &Value, arguments: Vec<Value>) -> Result<Value, WalkerError> {
-        let called = match &val.variant {
-            ValueVariant::Fn(i) => i,
+        let called = match &val.kind {
+            ValueKind::Fn(i) => i,
             _ => {
                 return Err(WalkerError::OperationError(OperationError::CallableType(
                     val.clone(),

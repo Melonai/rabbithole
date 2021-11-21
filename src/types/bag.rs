@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use super::{RefValueMap, Type, TypeVariant};
+use super::{RefValueMap, Type, TypeKind};
 
 #[derive(Clone)]
 pub struct TypeBag {
@@ -21,22 +21,20 @@ impl TypeBag {
         }
     }
 
-    pub fn create_type(&self, variant: TypeVariant) -> Type {
-        let global_associated_values_for_type = match variant {
-            TypeVariant::Fn { .. } => &self.global_associated_values.fn_values,
-            TypeVariant::Array(_) => &self.global_associated_values.array_values,
-            TypeVariant::Tuple(_) => &self.global_associated_values.tuple_values,
-            TypeVariant::Data { .. } => &self.global_associated_values.data_values,
-            TypeVariant::Str
-            | TypeVariant::Int
-            | TypeVariant::Float
-            | TypeVariant::Bool
-            | TypeVariant::Void => panic!("There should only be one type {:?}.", variant),
-            TypeVariant::Face(_) | TypeVariant::Var(_) => todo!("Implement abstract types."),
+    pub fn create_type(&self, kind: TypeKind) -> Type {
+        let global_associated_values_for_type = match kind {
+            TypeKind::Fn { .. } => &self.global_associated_values.fn_values,
+            TypeKind::Array(_) => &self.global_associated_values.array_values,
+            TypeKind::Tuple(_) => &self.global_associated_values.tuple_values,
+            TypeKind::Data { .. } => &self.global_associated_values.data_values,
+            TypeKind::Str | TypeKind::Int | TypeKind::Float | TypeKind::Bool | TypeKind::Void => {
+                panic!("There should only be one type {:?}.", kind)
+            }
+            TypeKind::Face(_) | TypeKind::Var(_) => todo!("Implement abstract types."),
         };
 
         Type {
-            variant: Box::new(variant),
+            kind: Box::new(kind),
             global_associated_values: global_associated_values_for_type,
         }
     }
@@ -106,17 +104,17 @@ struct AtomicTypes {
 impl AtomicTypes {
     fn new(values: &'static GlobalAssociatedValues) -> Self {
         AtomicTypes {
-            str_type: Self::create_single_type(TypeVariant::Str, &values.str_values),
-            int_type: Self::create_single_type(TypeVariant::Int, &values.int_values),
-            float_type: Self::create_single_type(TypeVariant::Float, &values.float_values),
-            bool_type: Self::create_single_type(TypeVariant::Bool, &values.bool_values),
-            void_type: Self::create_single_type(TypeVariant::Void, &values.void_values),
+            str_type: Self::create_single_type(TypeKind::Str, &values.str_values),
+            int_type: Self::create_single_type(TypeKind::Int, &values.int_values),
+            float_type: Self::create_single_type(TypeKind::Float, &values.float_values),
+            bool_type: Self::create_single_type(TypeKind::Bool, &values.bool_values),
+            void_type: Self::create_single_type(TypeKind::Void, &values.void_values),
         }
     }
 
-    fn create_single_type(variant: TypeVariant, values: &'static RefValueMap) -> Type {
+    fn create_single_type(kind: TypeKind, values: &'static RefValueMap) -> Type {
         Type {
-            variant: Box::new(variant),
+            kind: Box::new(kind),
             global_associated_values: values,
         }
     }

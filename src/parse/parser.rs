@@ -3,7 +3,7 @@ use super::ast::nodes::{ArrayNode, LoopNode, StrNode, UnaryOperator};
 use super::ast::statement::Statement;
 use super::ast::Program;
 use crate::lex::lexer::Lexer;
-use crate::lex::token::TokenVariant::*;
+use crate::lex::token::TokenKind::*;
 use crate::parse::ast::nodes::{
     ArrayAccessNode, BinaryOperator, BlockNode, CallNode, ConditionalBlock, FnHeader, FnNode,
     IfNode, MemberAccessNode, SimpleLiteral, StrPart, TypedIdentifier,
@@ -35,7 +35,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn statement(&mut self) -> Result<Statement> {
         let token = self.tokens.peek().expect("Expected token.");
-        match token.variant {
+        match token.kind {
             KeywordPrint => self.print_statement(),
             KeywordReturn => self.return_statement(),
             KeywordBreak => self.break_statement(),
@@ -216,7 +216,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         let mut left = self.unit_expression()?;
 
         while let Some(token) = consume_if!(self, GroupOpen | ArrayOpen | Dot) {
-            match token.variant {
+            match token.kind {
                 GroupOpen => {
                     let mut arguments = Vec::new();
 
@@ -257,7 +257,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn unit_expression(&mut self) -> Result<Expression> {
         if let Some(token) = self.tokens.peek() {
-            match token.variant {
+            match token.kind {
                 Int(_) | Float(_) | Str(_) | KeywordTrue | KeywordFalse => {
                     let literal = self.tokens.next().unwrap();
                     Ok(Expression::SimpleLiteral(SimpleLiteral::from_token(
@@ -275,7 +275,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 KeywordFn => Ok(Expression::FnLiteral(Box::new(self.function()?))),
                 KeywordIf => Ok(Expression::If(Box::new(self.conditional()?))),
                 KeywordLoop => Ok(Expression::Loop(Box::new(self.repeating()?))),
-                _ => Err(anyhow!("Unexpected token: {:?}", token.variant)),
+                _ => Err(anyhow!("Unexpected token: {:?}", token.kind)),
             }
         } else {
             Err(anyhow!("Expected expression."))
@@ -313,7 +313,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         loop {
             let token = self.tokens.next().expect("Unclosed str.");
 
-            let part = match token.variant {
+            let part = match token.kind {
                 Str(literal) => StrPart::Literal(literal),
                 StrEmbed(code) => {
                     let embed_lexer = Lexer::new(&code);
@@ -440,7 +440,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         loop {
             let token = self.tokens.peek().expect("Unclosed block.");
-            match token.variant {
+            match token.kind {
                 KeywordReturn | KeywordPrint | KeywordContinue | KeywordBreak => {
                     statements.push(self.statement()?);
                 }

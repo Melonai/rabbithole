@@ -10,12 +10,12 @@ type ReferenceOnCopy<T> = Rc<RefCell<T>>;
 
 #[derive(Clone, Debug)]
 pub struct Value {
-    pub variant: ValueVariant,
+    pub kind: ValueKind,
     pub typ: Type,
 }
 
 #[derive(Clone, Debug)]
-pub enum ValueVariant {
+pub enum ValueKind {
     Str(String),
     Float(f64),
     Int(i64),
@@ -29,49 +29,49 @@ pub enum ValueVariant {
 impl Value {
     pub fn str(val: String, types: &TypeBag) -> Self {
         Self {
-            variant: ValueVariant::Str(val),
+            kind: ValueKind::Str(val),
             typ: types.str(),
         }
     }
 
     pub fn int(val: i64, types: &TypeBag) -> Self {
         Self {
-            variant: ValueVariant::Int(val),
+            kind: ValueKind::Int(val),
             typ: types.int(),
         }
     }
 
     pub fn float(val: f64, types: &TypeBag) -> Self {
         Self {
-            variant: ValueVariant::Float(val),
+            kind: ValueKind::Float(val),
             typ: types.float(),
         }
     }
 
     pub fn bool(val: bool, types: &TypeBag) -> Self {
         Self {
-            variant: ValueVariant::Bool(val),
+            kind: ValueKind::Bool(val),
             typ: types.bool(),
         }
     }
 
     pub fn void(types: &TypeBag) -> Self {
         Self {
-            variant: ValueVariant::Void,
+            kind: ValueKind::Void,
             typ: types.void(),
         }
     }
 
     pub fn type_name(&self) -> &'static str {
         // TODO: Base this off of the type.
-        match self.variant {
-            ValueVariant::Str(_) => "Str",
-            ValueVariant::Float(_) => "Float",
-            ValueVariant::Int(_) => "Int",
-            ValueVariant::Bool(_) => "Bool",
-            ValueVariant::Array(_) => "Array",
-            ValueVariant::Fn(_) => "Fn",
-            ValueVariant::Void => "Void",
+        match self.kind {
+            ValueKind::Str(_) => "Str",
+            ValueKind::Float(_) => "Float",
+            ValueKind::Int(_) => "Int",
+            ValueKind::Bool(_) => "Bool",
+            ValueKind::Array(_) => "Array",
+            ValueKind::Fn(_) => "Fn",
+            ValueKind::Void => "Void",
             _ => todo!(),
         }
     }
@@ -79,12 +79,12 @@ impl Value {
 
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.variant {
-            ValueVariant::Str(v) => write!(f, "{}", v),
-            ValueVariant::Float(v) => write!(f, "{}", v),
-            ValueVariant::Int(v) => write!(f, "{}", v),
-            ValueVariant::Bool(v) => write!(f, "{}", v),
-            ValueVariant::Array(a) => {
+        match &self.kind {
+            ValueKind::Str(v) => write!(f, "{}", v),
+            ValueKind::Float(v) => write!(f, "{}", v),
+            ValueKind::Int(v) => write!(f, "{}", v),
+            ValueKind::Bool(v) => write!(f, "{}", v),
+            ValueKind::Array(a) => {
                 write!(
                     f,
                     "[{}]",
@@ -95,8 +95,8 @@ impl Display for Value {
                         .join(", ")
                 )
             }
-            ValueVariant::Fn(v) => write!(f, "<fn {:?}>", v.as_ptr()),
-            ValueVariant::Void => write!(f, "<void>"),
+            ValueKind::Fn(v) => write!(f, "<fn {:?}>", v.as_ptr()),
+            ValueKind::Void => write!(f, "<void>"),
             _ => todo!(),
         }
     }

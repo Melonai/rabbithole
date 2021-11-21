@@ -8,12 +8,12 @@ use crate::parse::ast::nodes::Identifier;
 
 #[derive(Debug, Clone)]
 pub struct Type {
-    variant: Box<TypeVariant>,
+    kind: Box<TypeKind>,
     global_associated_values: &'static RefValueMap,
 }
 
 #[derive(Debug, Clone)]
-pub enum TypeVariant {
+pub enum TypeKind {
     // Concrete types
     Str,
     Int,

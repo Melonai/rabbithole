@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! check {
-    ($self:ident, $($variant:pat_param)|+) => {
-        if let Some(Token {variant: $( $variant )|+, ..}) = $self.tokens.peek() {
+    ($self:ident, $($kind:pat_param)|+) => {
+        if let Some(Token {kind: $( $kind )|+, ..}) = $self.tokens.peek() {
             true
         } else {
             false
@@ -11,15 +11,15 @@ macro_rules! check {
 
 #[macro_export]
 macro_rules! consume {
-    ($self:ident, $($variant:pat_param)|+) => {
+    ($self:ident, $($kind:pat_param)|+) => {
         if let Some(token) = $self.tokens.next() {
-            if let Token {variant: $( $variant )|+, ..} = token {
+            if let Token {kind: $( $kind )|+, ..} = token {
                 Ok(token)
             } else {
                 Err(anyhow!(
                     // Make a better error message
                     "Received unexpected token: '{:?}'.",
-                    token.variant
+                    token.kind
                 ))
             }
         } else {
@@ -31,8 +31,8 @@ macro_rules! consume {
 
 #[macro_export]
 macro_rules! consume_if {
-    ($self:ident, $($variant:pat_param)|+) => {
-        if let Some(Token {variant: $( $variant )|+, ..}) = $self.tokens.peek() {
+    ($self:ident, $($kind:pat_param)|+) => {
+        if let Some(Token {kind: $( $kind )|+, ..}) = $self.tokens.peek() {
             Some($self.tokens.next().unwrap())
         } else {
             None
@@ -42,10 +42,10 @@ macro_rules! consume_if {
 
 #[macro_export]
 macro_rules! inner {
-    ($token:expr, $variant:path ) => {
-        match $token.variant {
-            $variant(inner) => inner,
-            _ => panic!("Tried getting inner content of incorrect variant."),
+    ($token:expr, $kind:path ) => {
+        match $token.kind {
+            $kind(inner) => inner,
+            _ => panic!("Tried getting inner content of incorrect kind."),
         }
     };
 }
