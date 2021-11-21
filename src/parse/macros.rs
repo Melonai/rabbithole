@@ -16,15 +16,15 @@ macro_rules! consume {
             if let Token {kind: $( $kind )|+, ..} = token {
                 Ok(token)
             } else {
-                Err(anyhow!(
-                    // Make a better error message
-                    "Received unexpected token: '{:?}'.",
-                    token.kind
-                ))
+                Err(parser_error(ErrorLocation::Specific(token.location), ParserError::UnexpectedToken {
+                    received: token.kind,
+                    expected: merge_token_names!($($kind),+),
+                }))
             }
         } else {
-            // Here too
-            Err(anyhow!("Expected a token."))
+            Err(parser_error(ErrorLocation::Eof, ParserError::UnexpectedEof {
+                expected: merge_token_names!($($kind),+),
+            }))
         }
     };
 }
@@ -47,5 +47,13 @@ macro_rules! inner {
             $kind(inner) => inner,
             _ => panic!("Tried getting inner content of incorrect kind."),
         }
+    };
+}
+
+// TODO: Better names for the tokens.
+#[macro_export]
+macro_rules! merge_token_names {
+    ($($kind:pat_param),+) => {
+        vec![$( stringify!($kind) ),+].join(", ")
     };
 }

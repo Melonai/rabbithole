@@ -1,10 +1,12 @@
-use std::{env, fs, path::Path};
+use std::{env, fs, path::Path, process::exit};
 
+mod error;
 mod interpret;
 mod lex;
 mod parse;
 mod types;
 
+use error::RHError;
 use lex::lexer::Lexer;
 
 use interpret::walker::Walker;
@@ -27,7 +29,7 @@ fn file(filename: impl AsRef<Path>) {
     let lexer = Lexer::new(&contents);
     let mut parser = Parser::new(lexer);
 
-    let node = parser.parse().expect("Failed parsing.");
+    let node = handle_error(parser.parse(), &contents);
     let mut walker = Walker::root();
 
     walker.walk(&node);
@@ -52,9 +54,19 @@ fn repl() {
         let lexer = Lexer::new(input_buffer.trim());
         let mut parser = Parser::new(lexer);
 
-        let node = parser.expression().expect("Failed parsing.");
+        let node = handle_error(parser.expression(), &input_buffer);
         let result = walker.walk_expression(&node).expect("Failed interpreting.");
 
         println!("🥕: {:?}\n", result);
+    }
+}
+
+fn handle_error<T>(result: Result<T, RHError>, source: &str) -> T {
+    match result {
+        Ok(x) => x,
+        Err(error) => {
+            print!("{}", error.hydrate_source(&source));
+            exit(1);
+        }
     }
 }

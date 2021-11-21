@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"
+colored = "2.0.0"
