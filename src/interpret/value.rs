@@ -1,5 +1,5 @@
 use crate::{
-    parse::ast::nodes::{FnNode, Identifier},
+    parse::ast::nodes::{FnExpression, Identifier},
     types::{bag::TypeBag, Type},
 };
 use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
@@ -104,7 +104,7 @@ impl Display for Value {
 
 #[derive(Clone, Debug)]
 pub struct FnValue {
-    pub node: FnNode,
+    pub node: FnExpression,
     pub scope: ScopeChain,
 }
 

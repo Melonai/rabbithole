@@ -1,9 +1,17 @@
 use std::fmt::Display;
 
+use crate::lex::token::Location;
+
 use super::expression::Expression;
 
 #[derive(Debug, Clone)]
-pub enum Statement {
+pub struct Statement {
+    pub at: Location,
+    pub kind: StatementKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum StatementKind {
     Expression(Expression),
     Print(Expression),
     Break(Option<Expression>),
@@ -24,17 +32,17 @@ impl Statement {
         depth: usize,
     ) -> std::fmt::Result {
         let pad = "  ".repeat(depth);
-        match self {
-            Statement::Expression(expression) => expression.nested_fmt(f, depth)?,
-            Statement::Print(expression) => {
+        match self.kind {
+            StatementKind::Expression(expression) => expression.nested_fmt(f, depth)?,
+            StatementKind::Print(expression) => {
                 writeln!(f, "{}Print:", pad)?;
                 expression.nested_fmt(f, depth + 1)?;
             }
-            Statement::Return(expression) => {
+            StatementKind::Return(expression) => {
                 writeln!(f, "{}Return:", pad)?;
                 expression.nested_fmt(f, depth + 1)?;
             }
-            Statement::Break(expression) => {
+            StatementKind::Break(expression) => {
                 if let Some(returned_on_break) = expression {
                     writeln!(f, "{}Break:", pad)?;
                     returned_on_break.nested_fmt(f, depth + 1)?;
@@ -42,7 +50,7 @@ impl Statement {
                     writeln!(f, "{}Break", pad)?;
                 }
             }
-            Statement::Continue => {
+            StatementKind::Continue => {
                 writeln!(f, "{}Continue", pad)?;
             }
         }

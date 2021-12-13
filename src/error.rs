@@ -1,6 +1,7 @@
 use crate::{interpret::walker::WalkerError, lex::token::Location, parse::parser::ParserError};
 use colored::Colorize;
 use std::fmt::Display;
+
 pub struct RHError {
     pub at: ErrorLocation,
     pub kind: RHErrorKind,

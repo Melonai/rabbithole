@@ -1,15 +1,18 @@
 use thiserror::Error;
 
-use super::ast::expression::Expression;
-use super::ast::nodes::{ArrayNode, LoopNode, StrNode, UnaryOperator};
-use super::ast::statement::Statement;
+use super::ast::expression::{Expression, ExpressionKind};
+use super::ast::nodes::{
+    ArrayExpression, BinaryOperatorNode, FnHeaderNode, LoopExpression, SimpleLiteralNode,
+    StrExpression, StrPartKind, StrPartNode, TypedIdentifierNode, UnaryOperatorNode,
+};
+use super::ast::statement::{Statement, StatementKind};
 use super::ast::Program;
 use crate::error::{ErrorLocation, RHError, RHErrorKind};
 use crate::lex::lexer::Lexer;
 use crate::lex::token::TokenKind::{self, *};
 use crate::parse::ast::nodes::{
-    ArrayAccessNode, BinaryOperator, BlockNode, CallNode, ConditionalBlock, FnHeader, FnNode,
-    IfNode, MemberAccessNode, SimpleLiteral, StrPart, TypedIdentifier,
+    ArrayAccessExpression, BlockExpression, CallExpression, ConditionalBlockNode, FnExpression,
+    IfExpression, MemberAccessExpression,
 };
 use crate::{check, consume, consume_if, inner, lex::token::Token, merge_token_names};
 use std::iter::Peekable;
@@ -47,14 +50,17 @@ impl<T: Iterator<Item = Token>> Parser<T> {
     }
 
     fn return_statement(&mut self) -> Result<Statement, RHError> {
-        consume!(self, KeywordReturn)?;
+        let return_token = consume!(self, KeywordReturn)?;
         let expression = self.expression()?;
         consume!(self, SemiColon)?;
-        Ok(Statement::Return(expression))
+        Ok(Statement {
+            at: return_token.location,
+            kind: StatementKind::Return(expression),
+        })
     }
 
     fn break_statement(&mut self) -> Result<Statement, RHError> {
-        consume!(self, KeywordBreak)?;
+        let break_token = consume!(self, KeywordBreak)?;
         let returned_on_break = if consume_if!(self, SemiColon).is_none() {
             let expression = self.expression()?;
             consume!(self, SemiColon)?;
@@ -62,26 +68,38 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         } else {
             None
         };
-        Ok(Statement::Break(returned_on_break))
+        Ok(Statement {
+            at: break_token.location,
+            kind: StatementKind::Break(returned_on_break),
+        })
     }
 
     fn continue_statement(&mut self) -> Result<Statement, RHError> {
-        consume!(self, KeywordContinue)?;
+        let continue_token = consume!(self, KeywordContinue)?;
         consume!(self, SemiColon)?;
-        Ok(Statement::Continue)
+        Ok(Statement {
+            at: continue_token.location,
+            kind: StatementKind::Continue,
+        })
     }
 
     fn print_statement(&mut self) -> Result<Statement, RHError> {
-        consume!(self, KeywordPrint)?;
+        let print_token = consume!(self, KeywordPrint)?;
         let expression = self.expression()?;
         consume!(self, SemiColon)?;
-        Ok(Statement::Print(expression))
+        Ok(Statement {
+            at: print_token.location,
+            kind: StatementKind::Print(expression),
+        })
     }
 
     fn expression_statement(&mut self) -> Result<Statement, RHError> {
         let expression = self.expression()?;
         consume!(self, SemiColon)?;
-        Ok(Statement::Expression(expression))
+        Ok(Statement {
+            at: expression.at,
+            kind: StatementKind::Expression(expression),
+        })
     }
 
     pub fn expression(&mut self) -> Result<Expression, RHError> {
@@ -95,10 +113,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         if let Some(op) = consume_if!(self, Assign | ConstAssign) {
             let right = self.assignment_expression()?;
 
-            Ok(Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            Ok(Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             })
         } else {
             Ok(left)
@@ -111,10 +132,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         while let Some(op) = consume_if!(self, OpAnd) {
             let right = self.and_expression()?;
 
-            left = Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            left = Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -127,10 +151,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         while let Some(op) = consume_if!(self, OpOr) {
             let right = self.equality_expression()?;
 
-            left = Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            left = Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -143,10 +170,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         while let Some(op) = consume_if!(self, OpEq | OpNeq) {
             let right = self.comparison_expression()?;
 
-            left = Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            left = Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -159,10 +189,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         while let Some(op) = consume_if!(self, OpGt | OpGte | OpLt | OpLte) {
             let right = self.term_expression()?;
 
-            left = Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            left = Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -175,10 +208,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         while let Some(op) = consume_if!(self, OpPlus | OpMinus) {
             let right = self.factor_expression()?;
 
-            left = Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            left = Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -191,10 +227,13 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         while let Some(op) = consume_if!(self, OpSlash | OpStar) {
             let right = self.unary_expression()?;
 
-            left = Expression::Binary {
-                left: Box::new(left),
-                op: BinaryOperator::from_token(op),
-                right: Box::new(right),
+            left = Expression {
+                at: left.at,
+                kind: ExpressionKind::Binary {
+                    left: Box::new(left),
+                    op: BinaryOperatorNode::from_token(op),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -203,9 +242,14 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn unary_expression(&mut self) -> Result<Expression, RHError> {
         let expression = if check!(self, OpPlus | OpMinus | OpNot) {
-            Expression::Unary {
-                op: UnaryOperator::from_token(self.tokens.next().unwrap()),
-                right: Box::new(self.unary_expression()?),
+            let op_token = self.tokens.next().unwrap();
+
+            Expression {
+                at: op_token.location,
+                kind: ExpressionKind::Unary {
+                    op: UnaryOperatorNode::from_token(op_token),
+                    right: Box::new(self.unary_expression()?),
+                },
             }
         } else {
             self.postfix_expression()?
@@ -218,7 +262,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         let mut left = self.unit_expression()?;
 
         while let Some(token) = consume_if!(self, GroupOpen | ArrayOpen | Dot) {
-            match token.kind {
+            let kind = match token.kind {
                 GroupOpen => {
                     let mut arguments = Vec::new();
 
@@ -231,27 +275,35 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                         }
                     }
 
-                    left = Expression::Call(Box::new(CallNode {
+                    ExpressionKind::Call(Box::new(CallExpression {
+                        at: token.location,
                         called: left,
                         arguments,
-                    }));
+                    }))
                 }
                 ArrayOpen => {
                     let index = self.expression()?;
                     consume!(self, ArrayClose)?;
 
-                    left = Expression::ArrayAccess(Box::new(ArrayAccessNode { array: left, index }))
+                    ExpressionKind::ArrayAccess(Box::new(ArrayAccessExpression {
+                        at: token.location,
+                        array: left,
+                        index,
+                    }))
                 }
                 Dot => {
                     let member_name = inner!(consume!(self, Ident(_))?, Ident);
 
-                    left = Expression::MemberAccess(Box::new(MemberAccessNode {
+                    ExpressionKind::MemberAccess(Box::new(MemberAccessExpression {
+                        at: token.location,
                         object: left,
                         member_name,
                     }))
                 }
                 _ => unreachable!(),
-            }
+            };
+
+            left = Expression { at: left.at, kind };
         }
 
         Ok(left)
@@ -259,24 +311,24 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn unit_expression(&mut self) -> Result<Expression, RHError> {
         if let Some(token) = self.tokens.peek() {
-            match token.kind {
+            let kind = match token.kind {
                 Int(_) | Float(_) | Str(_) | KeywordTrue | KeywordFalse => {
                     let literal = self.tokens.next().unwrap();
-                    Ok(Expression::SimpleLiteral(SimpleLiteral::from_token(
-                        literal,
-                    )))
+                    Ok(ExpressionKind::SimpleLiteral(
+                        SimpleLiteralNode::from_token(literal),
+                    ))
                 }
-                Ident(_) => Ok(Expression::Identifier(inner!(
+                Ident(_) => Ok(ExpressionKind::Identifier(inner!(
                     self.tokens.next().unwrap(),
                     Ident
                 ))),
-                StrOpen => Ok(Expression::StrLiteral(Box::new(self.str()?))),
-                GroupOpen => Ok(Expression::Group(Box::new(self.group()?))),
-                BlockOpen => Ok(Expression::Block(Box::new(self.generic_block()?))),
-                ArrayOpen => Ok(Expression::ArrayLiteral(self.array()?)),
-                KeywordFn => Ok(Expression::FnLiteral(Box::new(self.function()?))),
-                KeywordIf => Ok(Expression::If(Box::new(self.conditional()?))),
-                KeywordLoop => Ok(Expression::Loop(Box::new(self.repeating()?))),
+                StrOpen => Ok(ExpressionKind::StrLiteral(Box::new(self.str()?))),
+                GroupOpen => Ok(ExpressionKind::Group(Box::new(self.group()?))),
+                BlockOpen => Ok(ExpressionKind::Block(Box::new(self.generic_block()?))),
+                ArrayOpen => Ok(ExpressionKind::ArrayLiteral(self.array()?)),
+                KeywordFn => Ok(ExpressionKind::FnLiteral(Box::new(self.function()?))),
+                KeywordIf => Ok(ExpressionKind::If(Box::new(self.conditional()?))),
+                KeywordLoop => Ok(ExpressionKind::Loop(Box::new(self.repeating()?))),
                 _ => Err(parser_error(
                     ErrorLocation::Specific(token.location),
                     ParserError::UnexpectedToken {
@@ -298,7 +350,12 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                         ),
                     },
                 )),
-            }
+            }?;
+
+            Ok(Expression {
+                at: token.location,
+                kind,
+            })
         } else {
             Err(parser_error(
                 ErrorLocation::Eof,
@@ -317,8 +374,8 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         Ok(expression)
     }
 
-    fn array(&mut self) -> Result<ArrayNode, RHError> {
-        consume!(self, ArrayOpen)?;
+    fn array(&mut self) -> Result<ArrayExpression, RHError> {
+        let array_token = consume!(self, ArrayOpen)?;
         let mut elements = Vec::new();
 
         loop {
@@ -330,39 +387,48 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         }
 
         consume!(self, ArrayClose)?;
-        Ok(ArrayNode { elements })
+        Ok(ArrayExpression {
+            at: array_token.location,
+            elements,
+        })
     }
 
-    fn str(&mut self) -> Result<StrNode, RHError> {
+    fn str(&mut self) -> Result<StrExpression, RHError> {
         let mut parts = Vec::new();
 
-        consume!(self, StrOpen)?;
+        let str_token = consume!(self, StrOpen)?;
 
         loop {
             let token = self.tokens.next().expect("Unclosed str.");
 
-            let part = match token.kind {
-                Str(literal) => StrPart::Literal(literal),
+            let part_kind = match token.kind {
+                Str(literal) => StrPartKind::Literal(literal),
                 StrEmbed(code) => {
                     let embed_lexer = Lexer::new(&code);
                     let mut embed_parser = Parser::new(embed_lexer);
 
                     let node = embed_parser.expression()?;
 
-                    StrPart::Embed(node)
+                    StrPartKind::Embed(node)
                 }
                 StrClose => break,
                 _ => unreachable!(),
             };
 
-            parts.push(part);
+            parts.push(StrPartNode {
+                at: token.location,
+                kind: part_kind,
+            });
         }
 
-        Ok(StrNode { parts })
+        Ok(StrExpression {
+            at: str_token.location,
+            parts,
+        })
     }
 
-    fn function(&mut self) -> Result<FnNode, RHError> {
-        consume!(self, KeywordFn)?;
+    fn function(&mut self) -> Result<FnExpression, RHError> {
+        let fn_token = consume!(self, KeywordFn)?;
 
         let header = {
             let has_self_receiver = if consume_if!(self, KeywordSelf).is_some() {
@@ -382,9 +448,10 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                     None
                 };
 
-                parameters.push(TypedIdentifier {
+                parameters.push(TypedIdentifierNode {
                     identifier: parameter_name,
                     type_constraint,
+                    at: token.location,
                 });
 
                 if consume_if!(self, Comma).is_none() {
@@ -398,29 +465,36 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 None
             };
 
-            FnHeader {
+            FnHeaderNode {
                 has_self_receiver,
                 parameters,
                 return_type,
+                at: fn_token.location,
             }
         };
 
         let body = self.generic_block()?;
 
-        Ok(FnNode { header, body })
+        Ok(FnExpression {
+            header,
+            body,
+            // Duplicated ^
+            at: fn_token.location,
+        })
     }
 
-    fn conditional(&mut self) -> Result<IfNode, RHError> {
-        consume!(self, KeywordIf)?;
+    fn conditional(&mut self) -> Result<IfExpression, RHError> {
+        let if_token = consume!(self, KeywordIf)?;
 
         let mut conditionals = Vec::new();
 
         let if_condition = self.expression()?;
         let if_block = self.generic_block()?;
 
-        conditionals.push(ConditionalBlock {
+        conditionals.push(ConditionalBlockNode {
             condition: if_condition,
             block: if_block,
+            at: if_condition.at,
         });
 
         // Elifs
@@ -428,9 +502,10 @@ impl<T: Iterator<Item = Token>> Parser<T> {
             let elif_condition = self.expression()?;
             let elif_block = self.generic_block()?;
 
-            conditionals.push(ConditionalBlock {
+            conditionals.push(ConditionalBlockNode {
                 condition: elif_condition,
                 block: elif_block,
+                at: elif_condition.at,
             });
         }
 
@@ -440,14 +515,15 @@ impl<T: Iterator<Item = Token>> Parser<T> {
             None
         };
 
-        Ok(IfNode {
+        Ok(IfExpression {
             conditionals,
             else_block,
+            at: if_token.location,
         })
     }
 
-    fn repeating(&mut self) -> Result<LoopNode, RHError> {
-        consume!(self, KeywordLoop)?;
+    fn repeating(&mut self) -> Result<LoopExpression, RHError> {
+        let loop_token = consume!(self, KeywordLoop)?;
 
         let condition = if consume_if!(self, KeywordIf).is_some() {
             let expression = self.expression()?;
@@ -457,11 +533,15 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         };
 
         let body = self.generic_block()?;
-        Ok(LoopNode { body, condition })
+        Ok(LoopExpression {
+            body,
+            condition,
+            at: loop_token.location,
+        })
     }
 
-    fn generic_block(&mut self) -> Result<BlockNode, RHError> {
-        consume!(self, BlockOpen)?;
+    fn generic_block(&mut self) -> Result<BlockExpression, RHError> {
+        let block_token = consume!(self, BlockOpen)?;
 
         let mut statements = Vec::new();
         let mut tail_expression = None;
@@ -478,7 +558,10 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 _ => {
                     let expression = self.expression()?;
                     if consume_if!(self, SemiColon).is_some() {
-                        statements.push(Statement::Expression(expression));
+                        statements.push(Statement {
+                            kind: StatementKind::Expression(expression),
+                            at: expression.at,
+                        });
                     } else {
                         tail_expression = Some(expression);
                         break;
@@ -489,9 +572,10 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         consume!(self, BlockClose)?;
 
-        Ok(BlockNode {
+        Ok(BlockExpression {
             statements,
             tail_expression,
+            at: block_token.location,
         })
     }
 }
