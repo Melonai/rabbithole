@@ -32,7 +32,7 @@ impl Statement {
         depth: usize,
     ) -> std::fmt::Result {
         let pad = "  ".repeat(depth);
-        match self.kind {
+        match &self.kind {
             StatementKind::Expression(expression) => expression.nested_fmt(f, depth)?,
             StatementKind::Print(expression) => {
                 writeln!(f, "{}Print:", pad)?;

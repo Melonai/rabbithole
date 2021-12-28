@@ -52,7 +52,7 @@ impl Display for Expression {
 impl Expression {
     pub(crate) fn nested_fmt(&self, f: &mut Formatter<'_>, depth: usize) -> fmt::Result {
         let pad = "  ".repeat(depth);
-        match self.kind {
+        match &self.kind {
             ExpressionKind::Binary { left, op, right } => {
                 writeln!(f, "{}Binary:", pad)?;
                 writeln!(f, "{}- Left:", pad)?;
@@ -100,7 +100,7 @@ impl Expression {
                 writeln!(f, "{}Str:", pad)?;
                 for (i, statement) in expr.parts.iter().enumerate() {
                     writeln!(f, "{}- {}:", pad, i)?;
-                    match statement.kind {
+                    match &statement.kind {
                         StrPartKind::Literal(literal) => {
                             writeln!(f, "{}{}", "  ".repeat(depth + 1), literal.clone())
                         }

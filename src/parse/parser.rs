@@ -303,7 +303,10 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 _ => unreachable!(),
             };
 
-            left = Expression { at: left.at, kind };
+            left = Expression {
+                at: token.location,
+                kind,
+            };
         }
 
         Ok(left)
@@ -311,6 +314,8 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn unit_expression(&mut self) -> Result<Expression, RHError> {
         if let Some(token) = self.tokens.peek() {
+            let location = token.location;
+
             let kind = match token.kind {
                 Int(_) | Float(_) | Str(_) | KeywordTrue | KeywordFalse => {
                     let literal = self.tokens.next().unwrap();
@@ -352,10 +357,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 )),
             }?;
 
-            Ok(Expression {
-                at: token.location,
-                kind,
-            })
+            Ok(Expression { at: location, kind })
         } else {
             Err(parser_error(
                 ErrorLocation::Eof,
@@ -492,9 +494,9 @@ impl<T: Iterator<Item = Token>> Parser<T> {
         let if_block = self.generic_block()?;
 
         conditionals.push(ConditionalBlockNode {
+            at: if_condition.at,
             condition: if_condition,
             block: if_block,
-            at: if_condition.at,
         });
 
         // Elifs
@@ -503,9 +505,9 @@ impl<T: Iterator<Item = Token>> Parser<T> {
             let elif_block = self.generic_block()?;
 
             conditionals.push(ConditionalBlockNode {
+                at: elif_condition.at,
                 condition: elif_condition,
                 block: elif_block,
-                at: elif_condition.at,
             });
         }
 
@@ -559,8 +561,8 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                     let expression = self.expression()?;
                     if consume_if!(self, SemiColon).is_some() {
                         statements.push(Statement {
-                            kind: StatementKind::Expression(expression),
                             at: expression.at,
+                            kind: StatementKind::Expression(expression),
                         });
                     } else {
                         tail_expression = Some(expression);

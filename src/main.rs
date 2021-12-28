@@ -32,7 +32,7 @@ fn file(filename: impl AsRef<Path>) {
     let node = handle_error(parser.parse(), &contents);
     let mut walker = Walker::root();
 
-    walker.walk(&node);
+    handle_error(walker.walk(&node), &contents);
 }
 
 fn repl() {
@@ -55,7 +55,7 @@ fn repl() {
         let mut parser = Parser::new(lexer);
 
         let node = handle_error(parser.expression(), &input_buffer);
-        let result = walker.walk_expression(&node).expect("Failed interpreting.");
+        let result = handle_error(walker.walk_expression(&node), &input_buffer);
 
         println!("🥕: {:?}\n", result);
     }

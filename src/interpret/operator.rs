@@ -1,6 +1,10 @@
 use thiserror::Error;
 
-use crate::{parse::ast::expression::Expression, types::bag::TypeBag};
+use crate::{
+    error::{RHError, RHErrorKind},
+    parse::ast::expression::{Expression, ExpressionKind},
+    types::bag::TypeBag,
+};
 
 use super::{
     value::{Value, ValueKind},
@@ -261,12 +265,26 @@ impl<'t> ValueOperator<'t> {
         // Yes, we create a new walker for every function call,
         // it's *way* easier that way.
         let mut walker = Walker::new(scope, self.types.clone());
-        let result = walker.walk_expression(&Expression::Block(Box::new(called.node.body.clone())));
 
-        if let Err(WalkerError::Return(returned)) = result {
-            Ok(returned)
-        } else {
-            result
+        // Re-assemble the function body into an expression.
+        let body_expression = Expression {
+            kind: ExpressionKind::Block(Box::new(called.node.body.clone())),
+            at: called.node.body.at,
+        };
+
+        // Evaluate the function body.
+        let result = walker.walk_expression(&body_expression);
+
+        match result {
+            Err(RHError {
+                kind: RHErrorKind::Run(err),
+                ..
+            }) => match err {
+                WalkerError::Return(returned_value) => Ok(returned_value),
+                _ => Err(err),
+            },
+            Err(_) => panic!("Walker returned non-walker error."),
+            Ok(result) => Ok(result),
         }
     }
 }
