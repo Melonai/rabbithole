@@ -1,5 +1,5 @@
-FIELD_WIDTH = 15;
-FIELD_HEIGHT = 15;
+FIELD_WIDTH := 15;
+FIELD_HEIGHT := 15;
 
 create_empty_field := fn {
     empty_row := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -30,7 +30,6 @@ loop {
     loop if y < FIELD_HEIGHT {
         x = 0;
         loop if x < FIELD_WIDTH {
-            
             top := if y == 0 { 0 } else { field[y - 1][x] };
             top_left := if x == 0 || y == 0 { 0 } else { field[y - 1][x - 1] };
             top_right := if x == FIELD_WIDTH - 1 || y == 0 { 0 } else { field[y - 1][x + 1] };
@@ -48,10 +47,8 @@ loop {
                 if neighbors == 3 {
                     new_field[y][x] = 1;
                 };
-            } else {
-                if neighbors == 2 || neighbors == 3 {
-                    new_field[y][x] = 1;
-                };
+            } elif neighbors == 2 || neighbors == 3 {
+                new_field[y][x] = 1;
             };
 
             x = x + 1;
