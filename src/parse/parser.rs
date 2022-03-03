@@ -51,11 +51,16 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
     fn return_statement(&mut self) -> Result<Statement, ParserError> {
         let return_token = consume!(self, KeywordReturn)?;
-        let expression = self.expression()?;
-        consume!(self, SemiColon)?;
+        let returned = if consume_if!(self, SemiColon).is_none() {
+            let expression = self.expression()?;
+            consume!(self, SemiColon)?;
+            Some(expression)
+        } else {
+            None
+        };
         Ok(Statement {
             at: return_token.location,
-            kind: StatementKind::Return(expression),
+            kind: StatementKind::Return(returned),
         })
     }
 

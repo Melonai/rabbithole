@@ -16,7 +16,7 @@ pub enum StatementKind {
     Print(Expression),
     Break(Option<Expression>),
     Continue,
-    Return(Expression),
+    Return(Option<Expression>),
 }
 
 impl Display for Statement {
@@ -39,8 +39,12 @@ impl Statement {
                 expression.nested_fmt(f, depth + 1)?;
             }
             StatementKind::Return(expression) => {
-                writeln!(f, "{}Return:", pad)?;
-                expression.nested_fmt(f, depth + 1)?;
+                if let Some(returned) = expression {
+                    writeln!(f, "{}Return:", pad)?;
+                    returned.nested_fmt(f, depth + 1)?;
+                } else {
+                    writeln!(f, "{}Return", pad)?;
+                }
             }
             StatementKind::Break(expression) => {
                 if let Some(returned_on_break) = expression {

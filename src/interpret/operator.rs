@@ -280,7 +280,7 @@ impl<'t> ValueOperator<'t> {
             Err(WalkerError {
                 kind: WalkerErrorKind::Return(returned_value),
                 ..
-            }) => Ok(returned_value),
+            }) => Ok(returned_value.unwrap_or_else(|| Value::void(self.types))),
             Err(x) => Err(CallError::InsideFunction(x)),
         }
     }
