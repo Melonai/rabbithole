@@ -1,7 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    error::{ErrorLocation, RHError, RHErrorKind},
     interpret::{
         operator::ValueOperator,
         value::{FnValue, ValueKind},
@@ -21,7 +20,7 @@ use crate::{
 use thiserror::Error;
 
 use super::{
-    operator::OperationError,
+    operator::{CallError, OperationError},
     scope::{ScopeChain, ScopeError},
     value::Value,
 };
@@ -44,7 +43,7 @@ impl Walker {
         Walker { scope, types }
     }
 
-    pub fn walk(&mut self, program: &Program) -> Result<(), RHError> {
+    pub fn walk(&mut self, program: &Program) -> Result<(), WalkerError> {
         self.scope.nest();
         for statement in program.statements.iter() {
             self.walk_statement(statement)?;
@@ -52,7 +51,7 @@ impl Walker {
         Ok(())
     }
 
-    fn walk_statement(&mut self, statement: &Statement) -> Result<Option<Value>, RHError> {
+    fn walk_statement(&mut self, statement: &Statement) -> Result<Option<Value>, WalkerError> {
         let result = match &statement.kind {
             StatementKind::Expression(node) => {
                 self.walk_expression(node)?;
@@ -66,9 +65,9 @@ impl Walker {
             // FIXME: Returns are always expected to have a return even though `return;` is valid.
             StatementKind::Return(node) => {
                 // If there's a function running above us it will catch this error.
-                return Err(walker_error(
+                return Err(WalkerError::new(
                     statement.at,
-                    WalkerError::Return(self.walk_expression(node)?),
+                    WalkerErrorKind::Return(self.walk_expression(node)?),
                 ));
             }
             StatementKind::Break(node) => {
@@ -78,18 +77,24 @@ impl Walker {
                     None
                 };
                 // If there's a loop above us it will catch this error.
-                return Err(walker_error(statement.at, WalkerError::LoopBreak(returned)));
+                return Err(WalkerError::new(
+                    statement.at,
+                    WalkerErrorKind::LoopBreak(returned),
+                ));
             }
             // Same here.
             StatementKind::Continue => {
-                return Err(walker_error(statement.at, WalkerError::LoopContinue));
+                return Err(WalkerError::new(
+                    statement.at,
+                    WalkerErrorKind::LoopContinue,
+                ));
             }
         };
 
         Ok(result)
     }
 
-    pub fn walk_expression(&mut self, node: &Expression) -> Result<Value, RHError> {
+    pub fn walk_expression(&mut self, node: &Expression) -> Result<Value, WalkerError> {
         match &node.kind {
             ExpressionKind::Binary { left, op, right } => {
                 // Assignment
@@ -104,7 +109,9 @@ impl Walker {
                     let left_value = self.walk_expression(left)?;
                     let is_left_true = match left_value.kind {
                         ValueKind::Bool(bool) => bool,
-                        _ => return Err(walker_error(left.at, WalkerError::WrongAndOrType)),
+                        _ => {
+                            return Err(WalkerError::new(left.at, WalkerErrorKind::WrongAndOrType))
+                        }
                     };
 
                     if let BinOp::And = op.kind {
@@ -138,7 +145,7 @@ impl Walker {
                     BinOp::Lte => exe.gte(right, left),
                     _ => unreachable!(),
                 }
-                .map_err(|err| walker_error(op.at, WalkerError::OperationError(err)))
+                .map_err(|err| WalkerError::new(op.at, WalkerErrorKind::OperationError(err)))
             }
             ExpressionKind::Unary { op, right } => {
                 let value = self.walk_expression(right)?;
@@ -149,7 +156,7 @@ impl Walker {
                     UnOp::Minus => exe.neg(value),
                     UnOp::Not => exe.not(value),
                 }
-                .map_err(|err| walker_error(op.at, WalkerError::OperationError(err)))
+                .map_err(|err| WalkerError::new(op.at, WalkerErrorKind::OperationError(err)))
             }
             ExpressionKind::Call(node) => {
                 let called = self.walk_expression(&node.called)?;
@@ -160,8 +167,15 @@ impl Walker {
                 }
 
                 let exe = ValueOperator::new(&self.types);
-                exe.call(&called, argument_values)
-                    .map_err(|err| walker_error(node.at, err))
+
+                match exe.call(&called, argument_values) {
+                    Ok(value) => Ok(value),
+                    Err(CallError::BeforeCall(op_err)) => Err(WalkerError::new(
+                        node.at,
+                        WalkerErrorKind::OperationError(op_err),
+                    )),
+                    Err(CallError::InsideFunction(err)) => Err(err),
+                }
             }
             ExpressionKind::ArrayAccess(node) => {
                 let array = self.walk_expression(&node.array)?;
@@ -169,7 +183,7 @@ impl Walker {
 
                 let exe = ValueOperator::new(&self.types);
                 exe.subscript(array, index)
-                    .map_err(|err| walker_error(node.at, WalkerError::OperationError(err)))
+                    .map_err(|err| WalkerError::new(node.at, WalkerErrorKind::OperationError(err)))
             }
             ExpressionKind::MemberAccess(_) => todo!("Structures not implemented yet."),
             ExpressionKind::Group(node) => self.walk_expression(node),
@@ -228,9 +242,9 @@ impl Walker {
                             return self.walk_block(&conditional.block);
                         }
                     } else {
-                        return Err(walker_error(
+                        return Err(WalkerError::new(
                             conditional.at,
-                            WalkerError::WrongIfConditionType,
+                            WalkerErrorKind::WrongIfConditionType,
                         ));
                     }
                 }
@@ -250,27 +264,26 @@ impl Walker {
                                 return Ok(Value::void(&self.types));
                             }
                         } else {
-                            return Err(walker_error(
+                            return Err(WalkerError::new(
                                 condition.at,
-                                WalkerError::WrongLoopConditionType,
+                                WalkerErrorKind::WrongLoopConditionType,
                             ));
                         }
                     }
 
                     match self.walk_block(&loop_node.body) {
-                        Err(RHError {
-                            kind: RHErrorKind::Run(err),
-                            at: ErrorLocation::Specific(at),
-                        }) => match err {
-                            WalkerError::LoopBreak(loop_value) => {
-                                return Ok(loop_value.unwrap_or(Value::void(&self.types)));
-                            }
-                            // Do nothing for continue and continue looping of course, you dummy.
-                            WalkerError::LoopContinue => {}
-                            // This is probably an actual error.
-                            _ => return Err(walker_error(at, err)),
-                        },
-                        Err(_) => panic!("Walker returned non-walker error."),
+                        Err(WalkerError {
+                            kind: WalkerErrorKind::LoopBreak(loop_value),
+                            ..
+                        }) => return Ok(loop_value.unwrap_or(Value::void(&self.types))),
+                        // Do nothing for continue and continue looping of course, you dummy.
+                        Err(WalkerError {
+                            kind: WalkerErrorKind::LoopContinue,
+                            ..
+                        }) => {}
+                        // This is probably an actual error.
+                        Err(x) => return Err(x),
+                        // Do nothing with values returned from loops for now.
                         _ => {}
                     }
                 }
@@ -278,11 +291,11 @@ impl Walker {
             ExpressionKind::Identifier(ident) => self
                 .scope
                 .get_var(ident, &self.types)
-                .map_err(|err| walker_error(node.at, WalkerError::ScopeError(err))),
+                .map_err(|err| WalkerError::new(node.at, WalkerErrorKind::ScopeError(err))),
         }
     }
 
-    fn walk_block(&mut self, block: &BlockExpression) -> Result<Value, RHError> {
+    fn walk_block(&mut self, block: &BlockExpression) -> Result<Value, WalkerError> {
         self.scope.nest();
 
         for statement in block.statements.iter() {
@@ -305,7 +318,7 @@ impl Walker {
         lvalue: &Expression,
         rvalue: &Expression,
         is_constant: bool,
-    ) -> Result<Value, RHError> {
+    ) -> Result<Value, WalkerError> {
         // Maybe other expressions could also be l-values, but these are fine for now.
         match &lvalue.kind {
             ExpressionKind::MemberAccess(_) => todo!("Structures not implemented yet."),
@@ -317,30 +330,37 @@ impl Walker {
                 let exe = ValueOperator::new(&self.types);
 
                 exe.subscript_assign(&mut array, index, value)
-                    .map_err(|err| walker_error(node.at, WalkerError::OperationError(err)))
+                    .map_err(|err| WalkerError::new(node.at, WalkerErrorKind::OperationError(err)))
             }
             ExpressionKind::Identifier(ident) => {
                 let value = self.walk_expression(rvalue)?;
                 self.scope
                     .set_var(ident, value.clone(), is_constant)
-                    .map_err(|err| walker_error(lvalue.at, WalkerError::ScopeError(err)))?;
+                    .map_err(|err| WalkerError::new(lvalue.at, WalkerErrorKind::ScopeError(err)))?;
                 return Ok(value);
             }
-            _ => Err(walker_error(lvalue.at, WalkerError::NonLValueAssignment)),
+            _ => Err(WalkerError::new(
+                lvalue.at,
+                WalkerErrorKind::NonLValueAssignment,
+            )),
         }
     }
 }
 
-// This assumes walker errors are always at a specific error location.
-fn walker_error(at: Location, walker_error: WalkerError) -> RHError {
-    RHError {
-        at: ErrorLocation::Specific(at),
-        kind: RHErrorKind::Run(walker_error),
+#[derive(Debug)]
+pub struct WalkerError {
+    pub kind: WalkerErrorKind,
+    pub at: Location,
+}
+
+impl WalkerError {
+    fn new(at: Location, kind: WalkerErrorKind) -> Self {
+        WalkerError { at, kind }
     }
 }
 
 #[derive(Error, Debug)]
-pub enum WalkerError {
+pub enum WalkerErrorKind {
     #[error("Loop expressions can only take boolean values as conditions.")]
     WrongLoopConditionType,
     #[error("If and Elif expressions can only take boolean values as conditions.")]

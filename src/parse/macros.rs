@@ -16,13 +16,13 @@ macro_rules! consume {
             if let Token {kind: $( $kind )|+, ..} = token {
                 Ok(token)
             } else {
-                Err(parser_error(ErrorLocation::Specific(token.location), ParserError::UnexpectedToken {
+                Err(ParserError::new(ParserErrorLocation::Specific(token.location), ParserErrorKind::UnexpectedToken {
                     received: token.kind,
                     expected: merge_token_names!($($kind),+),
                 }))
             }
         } else {
-            Err(parser_error(ErrorLocation::Eof, ParserError::UnexpectedEof {
+            Err(ParserError::new(ParserErrorLocation::Eof, ParserErrorKind::UnexpectedEof {
                 expected: merge_token_names!($($kind),+),
             }))
         }

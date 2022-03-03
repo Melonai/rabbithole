@@ -29,10 +29,10 @@ fn file(filename: impl AsRef<Path>) {
     let lexer = Lexer::new(&contents);
     let mut parser = Parser::new(lexer);
 
-    let node = handle_error(parser.parse(), &contents);
+    let node = handle_error(parser.parse().map_err(RHError::Parse), &contents);
     let mut walker = Walker::root();
 
-    handle_error(walker.walk(&node), &contents);
+    handle_error(walker.walk(&node).map_err(RHError::Run), &contents);
 }
 
 fn repl() {
@@ -54,8 +54,11 @@ fn repl() {
         let lexer = Lexer::new(input_buffer.trim());
         let mut parser = Parser::new(lexer);
 
-        let node = handle_error(parser.expression(), &input_buffer);
-        let result = handle_error(walker.walk_expression(&node), &input_buffer);
+        let node = handle_error(parser.expression().map_err(RHError::Parse), &input_buffer);
+        let result = handle_error(
+            walker.walk_expression(&node).map_err(RHError::Run),
+            &input_buffer,
+        );
 
         println!("🥕: {:?}\n", result);
     }

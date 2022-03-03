@@ -1,14 +1,13 @@
 use thiserror::Error;
 
 use crate::{
-    error::{RHError, RHErrorKind},
     parse::ast::expression::{Expression, ExpressionKind},
     types::bag::TypeBag,
 };
 
 use super::{
     value::{Value, ValueKind},
-    walker::{Walker, WalkerError},
+    walker::{Walker, WalkerError, WalkerErrorKind},
 };
 
 pub struct ValueOperator<'types> {
@@ -224,11 +223,11 @@ impl<'t> ValueOperator<'t> {
         }
     }
 
-    pub fn call(&self, val: &Value, arguments: Vec<Value>) -> Result<Value, WalkerError> {
+    pub fn call(&self, val: &Value, arguments: Vec<Value>) -> Result<Value, CallError> {
         let called = match &val.kind {
             ValueKind::Fn(i) => i,
             _ => {
-                return Err(WalkerError::OperationError(OperationError::CallableType(
+                return Err(CallError::BeforeCall(OperationError::CallableType(
                     val.clone(),
                 )))
             }
@@ -253,9 +252,10 @@ impl<'t> ValueOperator<'t> {
         let parameters = &called.node.header.parameters;
 
         if parameters.len() != arguments.len() {
-            return Err(WalkerError::OperationError(
-                OperationError::WrongArgumentCount(parameters.len(), arguments.len()),
-            ));
+            return Err(CallError::BeforeCall(OperationError::WrongArgumentCount(
+                parameters.len(),
+                arguments.len(),
+            )));
         }
 
         for (argument, parameter) in arguments.into_iter().zip(parameters.iter()) {
@@ -276,17 +276,19 @@ impl<'t> ValueOperator<'t> {
         let result = walker.walk_expression(&body_expression);
 
         match result {
-            Err(RHError {
-                kind: RHErrorKind::Run(err),
-                ..
-            }) => match err {
-                WalkerError::Return(returned_value) => Ok(returned_value),
-                _ => Err(err),
-            },
-            Err(_) => panic!("Walker returned non-walker error."),
             Ok(result) => Ok(result),
+            Err(WalkerError {
+                kind: WalkerErrorKind::Return(returned_value),
+                ..
+            }) => Ok(returned_value),
+            Err(x) => Err(CallError::InsideFunction(x)),
         }
     }
+}
+
+pub enum CallError {
+    BeforeCall(OperationError),
+    InsideFunction(WalkerError),
 }
 
 #[derive(Error, Debug)]
